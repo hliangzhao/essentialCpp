@@ -415,6 +415,7 @@ int main() {
     int arr[] = {1, 4, 3, 56, 7, 89, 90, -8, 91, 100};
     vector<int> v(arr, arr + 10);
 
+    // 设定大小为10（足够大）保证*at++ = *first++是合法操作
     int arr2[10];
     vector<int> v2(10);
     filter(arr, arr + 10, arr2, 50, less<int>());
@@ -432,3 +433,170 @@ int main() {
 }
 ```
 至此，我们实现的函数和元素类型无关，无比较操作无关，约合容器类型无关了。可以说，我们实现了了一个泛型算法。
+
+（5）现在，还有最后一个小问题：上述代码需要预先分配`arr2`和`v2`的大小，并且不能太小，这是对内存资源的一种浪费。可以不预留吗？——使用iterator insertor。
+```C++
+#include <iostream>
+#include <vector>
+#include <functional>
+#include <algorithm>
+#include <iterator>
+using namespace std;
+
+template <typename inIter, typename outIter, typename elemType, typename comp>
+outIter filter(inIter first, inIter last, outIter at, const elemType &val, comp pred) {
+    while ((first = find_if(first, last, bind2nd(pred, val))) != last) {
+        *at++ = *first++;       // 存放满足要求的元素
+    }
+}
+
+int main() {
+    int arr[] = {1, 4, 3, 56, 7, 89, 90, -8, 91, 100};
+    vector<int> v(arr, arr + 10);
+
+    int arr2[10];
+    vector<int> v2;         // 不设定结果容器的大小
+    filter(arr, arr + 10, arr2, 50, less<int>());
+    // 使用back_inserter(v2)自动扩展v2，还可以用inserter()
+    // front_inserter()只适用于list和deque
+    filter(v.begin(), v.end(), back_inserter(v2), 50, greater<int>());
+
+    // 因为arr2和v2的元素个数小于10，但我们无法知道具体有多少个，因此全部打印出来
+    for (auto i: arr2) {
+        cout << i << " ";           // 后面的元素未经初始化，可以是任意值
+    }
+    cout << endl;
+    for (auto i : v2) {
+        cout << i << " ";           // 没有后缀0了
+    }
+    cout << endl;
+}
+```
+
+9、使用关联性容器：
+
+（1）使用map：
+```C++
+#include <iostream>
+#include <map>
+using namespace std;
+
+int main() {
+    map<string, int> words;
+    words["abc"] = 2;
+    words["at"] = 10;
+    words["make"] = 1;
+
+    // 查询操作1
+    auto it = words.find("abc");
+    if (it != words.end()) cout << it->second << endl;
+
+    // 查询操作2
+    int count = 0;
+    if (words.count("abc")) count = words["bac"];
+
+    // 不推荐的查询操作：{"xyz": 0}会被添加进words
+    count = 0;
+    if (!(count = words["xyz"])) {
+        cout << words["xyz"] << endl;
+    }
+}
+```
+
+（2）使用set：
+```C++
+#include <iostream>
+#include <map>
+#include <set>
+using namespace std;
+
+int main() {
+    map<string, int> words;
+    words["abc"] = 2;
+    words["at"] = 10;
+    words["make"] = 1;
+    // 将set作为排除列表
+    set<string> s = {"the", "to", "and", "or"};
+    
+    string in;
+    while (cin >> in) {
+        if (s.count(in)) continue;
+        words[in]++;
+    }
+}
+```
+
+10、使用后输入输出流迭代器（iostream iterator）：
+
+从标准输入读入文本、对单词排序并输出，常规解法是：
+```C++
+#include <iostream>
+#include <vector>
+#include <algorithm>
+using namespace std;
+
+int main() {
+    string word;
+    vector<string> text;
+    
+    while (cin >> word) text.push_back(word);
+    sort(text.begin(), text.end());
+    
+    for (auto &token: text) {
+        cout << token << " ";
+    }
+    cout << endl;
+}
+```
+
+使用iostream iterator：
+```C++
+#include <iostream>
+#include <vector>
+#include <algorithm>
+#include <iterator>
+using namespace std;
+
+int main() {
+    istream_iterator<string> is(cin);       // 绑定标准输入
+    istream_iterator<string> eof;           // 不指定则代表EOF
+    
+    vector<string> text;
+    // 像操作容器（iterator）那样操作io流，注意此处使用了iterator inserter。
+    copy(is, eof, back_inserter(text));
+    sort(text.begin(), text.end());
+    
+    ostream_iterator<string> os(cout, " ");     // 分割符号为“ ”
+    copy(text.begin(), text.end(), os);
+}
+```
+
+将io流迭代器绑定到文件上：
+```C++
+#include <iostream>
+#include <vector>
+#include <algorithm>
+#include <fstream>
+#include <iterator>
+using namespace std;
+
+int main() {
+    ifstream in_file("in.txt");
+    ofstream out_file("out.txt");
+    if (!in_file || !out_file) {
+        cerr << "Cannot open" << endl;
+        return -1;
+    }
+
+    istream_iterator<string> is(in_file);       // 绑定标准输入
+    istream_iterator<string> eof;               // 不指定则代表EOF
+
+    vector<string> text;
+    // 像操作容器（iterator）那样操作io流，注意此处使用了iterator inserter。
+    copy(is, eof, back_inserter(text));
+    sort(text.begin(), text.end());
+
+    ostream_iterator<string> os(out_file);
+    copy(text.begin(), text.end(), os);
+}
+```
