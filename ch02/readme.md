@@ -73,9 +73,41 @@ void bubble_sort(vector<int> &vec) {
 ```
 引用不同于指针，它必须代表某一个变量，无法被置为0。
 
-4、在一个函数的末尾返回局部对象的地址会导致运行时错误。一旦函数完成，这块内存区域就会被释放掉（local scope），而传值则不会出现错误。尽管如此，一般仍不建议重度使用全局作用域变量，因为这样会打破函数之间的独立性，降低代码的安全性。
+4、在一个函数的末尾返回局部对象的地址会导致运行时错误。一旦函数完成，这块内存区域就会被释放掉（local scope），而传值则不会出现错误。
+尽管如此，一般仍不建议重度使用全局作用域变量，因为这样会打破函数之间的独立性，降低代码的安全性。
 
-5、不论为对象分配的内存是file scope还是local scope，他们都是由编译系统自动管理的。第三种存储期方式为**动态范围（dynamic extent）**，由用户通过`new`操作在堆上分配。
+下面有一个例子：
+```C++
+#include <iostream>
+using namespace std;
+
+float* Array(float *A,int length)
+{
+    float M[5];  //Array函数内部数组
+    for (int i=0; i<length; i++)
+        M[i]=A[i];
+    return M;
+}
+
+int main() {
+    float A[5] = {1.75, 0.25, 0, 0.75, 2.5};
+    float *M = Array(A, 5);
+    for (int i = 0; i < 5; i++)
+        cout << M[i] << endl;
+    cout << endl;
+}
+```
+此时的输出为
+```C++
+1.75
+4.59149e-41
+2.59681e-30
+1.4013e-45
+2.59681e-30
+```
+结果只输出了数组首地址对应的数组值，其他数值都未输出。这是因为在函数中定义的数组`M`在函数执行完后已经被系统释放掉了（local scope）。
+一种解决办法是声明全局变量（file scope），但是过多的全局变量会增强函数之间的耦合性，不推荐。实际上，不论为对象分配的内存是file scope还是local scope，
+他们都是由编译系统自动管理的。第三种存储期方式为**动态范围（dynamic extent）**，由用户通过`new`操作在堆上分配。
 ```C++
 int *p;
 p = new int;            // 如果不提供初值，则不初始化
@@ -87,8 +119,40 @@ p_arr = new int[20];    // 无法从heap分配数组的同时为其元素赋值
 delete p;               // 无需通过if(!p)来检查是否为空指针，编译器自行操作
 delete []p_arr;         // 释放一个数组的空间占用的方法
 ```
+基于此，重写`Array`函数如下：
+```C++
+float* Array(float *A, int length) {
+    float *M = new float[5];  //Array函数内部动态数组，替换原来的 flaot M[5];
+    for (int i = 0; i < length; i++)
+           M[i] = A[i];
+    return M;
+```
 
-6、设定函数默认参数：
+当然，使用**静态布局对象**也可以解决问题（后文给出）：
+```C++
+#include <iostream>
+using namespace std;
+
+const float* Array(float *A,int length)
+{
+    static float M[5];  //Array函数内部数组
+    for (int i=0; i<length; i++)
+        M[i]=A[i];
+    return M;
+}
+
+int main() {
+    float A[5] = {1.75, 0.25, 0, 0.75, 2.5};
+    const float *M = Array(A, 5);
+    for (int i = 0; i < 5; i++)
+        cout << M[i] << endl;
+    cout << endl;
+
+    return 0;
+}
+```
+
+5、设定函数默认参数：
 
 以下例子通过设定默认流实现输出的重定向：
 ```C++
@@ -140,14 +204,11 @@ void bubble_sort(vector<int> &vec, ofstream *ofs) {
 }
 ```
 
-7、使用**静态局部对象**提高代码性能：
+6、使用**静态局部对象**提高代码性能：
 以斐波那契数列的计算为例，当我们计算`fib(10)`的时候，其实已经把`fib(1)`到`fib(9)`的值全部计算出来了。
 然而，`fib(1)`到`fib(9)`的值会随着函数的调用结束而被遗忘，下次仍需要重新计算。如何保存已经计算出来的值的结果？
 
-+ **方法1：** 在函数内部声明局部vector对象。显然不能解决问题，因为函数内声明的任何对象都属于局部作用域；
-+ **方法2：** 将vector定义在file scope上（全局变量）。可以解决问题，但是过于冒险，过多的全局变量是大型项目的死敌。
-
-更好的方法是使用局部静态对象。该类型对象所在空间即使在不同的函数调用过程中，仍然持续存在。
+方法是使用静态局部对象。该类型对象所在空间即使在不同的函数调用过程中，仍然持续存在。
 ```C++
 #include <iostream>
 #include <vector>
@@ -182,7 +243,41 @@ const vector<int> *fib(int size) {
 }
 ```
 
-8、使用inline改善代码性能：
+如果不使用静态局部变量，直接按照如下方式写代码：
+```C++
+#include <iostream>
+#include <vector>
+using namespace std;
+
+vector<int> fib(int size);
+
+int main() {
+    vector<int> res = fib(10);
+    for (int i = 0; i < res.size(); i++) {
+        cout << res[i] << endl;
+    }
+}
+
+vector<int> fib(int size) {
+    const int max_size = 1024;
+    static vector<int> elems;
+    if (size <= 0 || size > max_size) {
+        cout << "invalid size\n";
+    }
+    for (unsigned i = elems.size(); i < size; i++) {
+        if (i == 0 || i == 1) {
+            elems.push_back(1);
+        } else {
+            elems.push_back(elems[i-1] + elems[i-2]);
+        }
+    }
+    return elems;
+}
+```
+虽然我们返回了一个在函数内创建的对象，但是这并不会报错。这是因为，该对象`elems`是一个容器，STL中容器都是通过`new`操作在堆上分配的，
+它们不在file scope或local scope的管辖范围内。注意，我们使用静态局部对象的原因是**对象所在空间即使在不同的函数调用过程中，仍然持续存在**。
+
+7、使用inline改善代码性能：
 将函数声明为inline，表示要求编译器在该函数的每个调用点上将其内容展开：将调用操作改为以一份函数代码副本代替。inline对编译器而言**不是强制性的**。
 ```C++
 #include <iostream>
@@ -240,7 +335,7 @@ inline bool find_elem(int pos, int &elem) {
 ```
 
 
-9、从重载函数到模版函数
+8、从重载函数到模版函数
 
 （1）**函数重载**：对于具有相同函数名的函数，通过**参数列表**来区分具体应该调用那一个函数。注意，函数的返回类型不足以将函数重载。
 ```C++
@@ -418,11 +513,11 @@ bool is_size_ok(int size) {
 }
 ```
 
-10、**对于一般的函数，定义只能有一份，但是可以有多份声明**。因为一个头文件可能被多个代码文件包含，所以不建议将函数体定义在头文件中，
+9、**对于一般的函数，定义只能有一份，但是可以有多份声明**。因为一个头文件可能被多个代码文件包含，所以不建议将函数体定义在头文件中，
 否则就违背“函数的定义只能有一份”这个要求了。
 但是，**inline函数应该定义在头文件中**——这是因为在每一个调用点上，编译器都需要取得该inline函数的定义，放在头文件并被多个程序文件包含反而是合理的。
 
-11、一个在file scope内定义的对象，如果可能被多个文件访问，那么应该被声明于头文件中（使用`extern`），然后让使用该变量的程序文件包含改头文件。
+10、一个在file scope内定义的对象，如果可能被多个文件访问，那么应该被声明于头文件中（使用`extern`），然后让使用该变量的程序文件包含改头文件。
 这是因为，如果我们只在单一的某个程序文件中声明它，别的程序文件是看不到的，因而是无法访问的。当然，我们也可以在每一个程序文件都用`extern`声明该变量，但是这显然不够简洁。
 ```C++
 // 这是某个头文件
@@ -431,5 +526,5 @@ extern const vector<double> * (*seq_arr[seq_cnt])(int);     // 这不是一个co
 extern enum seq_types {fib_seq_id, square_seq_id, circle_seq_id};
 ```
 
-12、如果一个头文件是标准的或项目专属的头文件，则以**尖括号**将文件名括住，这样编译器会在默认的某些文件目录下寻找该头文件；
+11、如果一个头文件是标准的或项目专属的头文件，则以**尖括号**将文件名括住，这样编译器会在默认的某些文件目录下寻找该头文件；
 如果文件名由成对的双引号括住，则被认为是用户提供的头文件，编译器会首先在项目文件目录下寻找。
