@@ -195,12 +195,12 @@ private:
 析构函数并不总是必要的。
 
 
-3、成员逐一初始化
+3、成员逐一初始化（default memberwise copy）：
 
 对于上面这个`Matrix`类，当执行
 ```C++
 Matrix mat(4, 4);
-Matrix mat2 = mat;
+Matrix mat2 = mat;          // 将一个class object赋值给另一个
 ```
 时，编译器会逐一复制`mat`实例的各个成员给`mat2`。这里执行了`mat2._mat_ptr = mat._mat_ptr`，仅仅是指针的赋值运算，而没有重新分配内存空间。这是严重的bug。
 因此，我们应当定义相应的构造函数来更正成员逐一初始化的方式。
@@ -406,6 +406,52 @@ TriangularArr t1, t2(3, 8);
 t1.copy(t2);                    // 被编译器自动翻译成copy(&t1, t2)，注意t1带有引用符号&
 ```
 
+**注意区分copy constructor和memberwise copy**。后者在使用assignment operator时被调用，前者本质上是一个构造函数，在一个对象被创建出来的时候使用。
+下面以`Matrix`的例子对二者进行比较：
+```C++
+#include <iostream>
+using namespace std;
+
+class Matrix {
+public:
+    Matrix(int row, int col): _row(row), _col(col) {
+        _mat_ptr = new double[row * col];
+    }
+    
+    // copy constructor
+    Matrix(const Matrix &mat): _row(mat._row), _col(mat._col) {
+        int elem_cnt = _row * _col;
+        _mat_ptr = new double[elem_cnt];
+        for (int i = 0; i < elem_cnt; i++) {
+            _mat_ptr[i] = mat._mat_ptr[i];
+        }
+    }
+    
+    // copy assignment operator
+    Matrix& operator=(const Matrix &mat) {
+        if (this != &mat) {
+            _row = mat._row;
+            _col = mat._col;
+            int elem_cnt = _row * _col;
+            delete []_mat_ptr;
+            _mat_ptr = new double[elem_cnt];
+            for (int i = 0; i < elem_cnt; i++) {
+                _mat_ptr[i] = mat._mat_ptr[i];
+            }
+        }
+        return *this;
+    }
+
+    ~Matrix() {
+        delete []_mat_ptr;
+    }
+
+private:
+    int _row, _col;
+    double *_mat_ptr;
+};
+```
+
 6、使用静态数据成员和静态成员函数：
 ```C++
 #include <iostream>
@@ -541,7 +587,7 @@ inline int TriangularArrIter::operator*() const {
 
 // 下面给出了int operator*() const的非成员函数的定义方式
 inline int operator*(const TriangularArrIter &arr) {
-    // 这是非成员函数的定义方式，因此不具备访问non-public member的权力
+    // 这是非成员函数的定义方式，因此不具备访问non-public member的权力（注意，类TriangularArrIter的public member是可以被本函数直接访问的，无需使用friend机制）
     // 如果check_integrity()是一个private成员函数，则无法被arr调用
     // 但是这里我们依然调用了，这是因为用到了friend机制（下一条给出，这里先不分析）
     arr.check_integrity();
@@ -573,7 +619,7 @@ inline void TriangularArrIter::check_integrity() const {
 // #include "TriangularArrIter.h"
 class TriangularArr {
 public:
-    // 使用潜逃类型屏蔽具体的迭代器TriangularArrIter的实现细节，使用者仅需要用iterator来定义作用于TriangularArr上的迭代器即可
+    // 使用嵌套类型屏蔽具体的迭代器TriangularArrIter的实现细节，使用者仅需要用iterator来定义作用于TriangularArr上的迭代器即可
     typedef TriangularArrIter iterator;
     TriangularArrIter begin() const { return TriangularArrIter(_begin_pos); }
     TriangularArrIter end() const { return TriangularArrIter(_begin_pos + _length); }
@@ -591,4 +637,157 @@ int main() {
 }
 ```
 
-8、使用friend机制
+8、使用friend机制允许自身的non-public member被外部访问：
+
+观察注释部分：
+```C++
+#include <iostream>
+#include <vector>
+using namespace std;
+
+class TriangularArrIter {
+public:
+    TriangularArrIter(int idx): _index(idx) {}
+    bool operator==(const TriangularArrIter&) const;
+    bool operator!=(const TriangularArrIter&) const;
+    int operator*() const;
+    TriangularArrIter& operator++();
+    TriangularArrIter operator++(int);
+    void check_integrity() const;
+
+private:
+    int _index;
+};
+
+inline bool TriangularArrIter::operator==(const TriangularArrIter &arr) const {
+    return _index == arr._index;
+}
+
+inline bool TriangularArrIter::operator!=(const TriangularArrIter &arr) const {
+    return !(*this == arr);
+}
+
+inline TriangularArrIter& TriangularArrIter::operator++() {
+    ++_index;
+    check_integrity();
+    return *this;
+}
+
+inline TriangularArrIter TriangularArrIter::operator++(int) {
+    TriangularArrIter tmp = *this;
+    ++_index;
+    check_integrity();
+    return tmp;
+}
+
+
+class TriangularArr {
+public:
+    typedef TriangularArrIter iterator;
+    TriangularArrIter begin() const { return TriangularArrIter(_begin_pos); }
+    TriangularArrIter end() const { return TriangularArrIter(_begin_pos + _length); }
+
+    // 将下面这些非成员函数声明为自己的friend，因为它们访问了自己的non-public member
+    // 如果自己提供了non-public member的公开访问方式，如：static int elem_size() { return _elem.size(); }
+    // 则friend关键字就不需要了
+    friend int TriangularArrIter::operator*() const;
+    friend void TriangularArrIter::check_integrity() const;
+    // friend class TriangularArrIter;      直接将这个类声明为自己的friend，这个类就可以肆意访问自己的non-public member
+
+private:
+    int _length;
+    int _begin_pos;
+    int _next;
+    static vector<int> _elems;
+    static const int _buf_size = 1024;
+};
+
+inline int TriangularArrIter::operator*() const {
+    check_integrity();
+    return TriangularArr::_elems[_index];
+}
+
+inline void TriangularArrIter::check_integrity() const {
+    if (_index >= TriangularArr::_buf_size) throw iterator_overflow();
+    if (_index >= TriangularArr::_elems.size()) TriangularArr::gen_elements(_index + 1);
+}
+```
+
+9、实现一个function object：
+
+在第三章，我们讲过使用STL中的函数对象来实现运算符的重载。例如如下：
+```C++
+#include <iostream>
+#include <vector>
+#include <functional>           // 包含本头文件
+#include <algorithm>
+using namespace std;
+
+int main() {
+    int arr[] = {1, 4, 3, 56, 7, 89, 90, -8, 91, 100};
+    vector<int> v(arr, arr + 10);
+    for (auto it = v.begin(); it != v.end(); it++) cout << *it << " ";
+    cout << endl;
+    // 类是greater<int>，通过调用构造函数greater<int>()产生该类的一个实例对象传入，目的是使得v按照降序排列
+    sort(v.begin(), v.end(), greater<int>());
+    for (auto it = v.begin(); it != v.end(); it++) cout << *it << " ";
+    cout << endl;
+}
+```
+
+此外，在习题3-2中我们实现了一个简易的`LessThan`函数对象用于实现升序排列：
+```C++
+class LessThan {
+public:
+    bool operator() (const string &s1, const string &s2) {
+        return s1.size() < s2.size();
+    }
+};
+```
+
+现在，我们给出一个更全面的函数对象的实现：
+```C++
+#include <iostream>
+#include <vector>
+using namespace std;
+
+class LessThan {
+public:
+    // 通过基值进行初始化。并实现对其的读取和写入操作
+    LessThan(int val): _val(val) {}
+    int read_val() { return _val; }
+    void write_val(int val) { _val = val; }
+    bool operator()(int val) const;
+    
+private:
+    int _val;
+};
+
+bool LessThan::operator()(int val) const {
+    return val < _val;
+}
+
+// 下面这个函数对用了函数对象LessThan
+void print_less_than(const vector<int> &v, int comp, ostream &os = cout) {
+    LessThan lt(comp);
+    auto it = v.begin(), end_it = v.end();
+    os << "Elements less than " << lt.read_val() << endl;
+    // 循环条件执行的操作：
+    // 将v[it]的元素和lt内部的基值进行比较，如果小于，则返回的it不为end_it
+    while ((it = find_if(it, end_it, lt)) != end_it) {
+        os << *it << " ";
+        it++;
+    }
+}
+
+// 下面这个函数对用了函数对象LessThan
+int count_less_than(const vector<int> &v, int comp) {
+    LessThan lt(comp);
+    int res = 0;
+    for (int i = 0; i < v.size(); i++) {
+        // lt(v[i])调用bool operator()(int val)函数
+        if (lt(v[i])) res++;
+    }
+    return res;
+}
+```
