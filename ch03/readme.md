@@ -80,8 +80,8 @@ template <typename elemType> inline const elemType *my_end(const vector<elemType
 先来看看STL中iterator的用法。
 ```C++
 // c是一个containerType<elemType>的容器实例
-containerType<elemType>::iterator iter = c.begin();             // 可读可写
-containerType<elemType>::const_iterator iter = c.begin();       // 只能读取，不能写入
+containerType<elemType>::iterator iter = c.begin();             // 可读可写c
+containerType<elemType>::const_iterator iter = c.begin();       // 只能读取c，不能写入
 ```
 
 使用iterator重写`my_find()`用以同时支持数组、vector和list。
@@ -91,7 +91,8 @@ containerType<elemType>::const_iterator iter = c.begin();       // 只能读取�
 #include <list>
 using namespace std;
 
-template <typename iterType, typename elemType> iterType my_find(iterType first, iterType last, const elemType &value);
+template <typename iterType, typename elemType> 
+iterType my_find(iterType first, iterType last, const elemType &value);
 
 int main() {
     int arr[] = {1, 9, 8, 0, 4};
@@ -111,7 +112,8 @@ int main() {
     }
 }
 
-template <typename iterType, typename elemType> iterType my_find(iterType first, iterType last, const elemType &value) {
+template <typename iterType, typename elemType> 
+iterType my_find(iterType first, iterType last, const elemType &value) {
     for (; first != last; first++) {
         if (value == *first) return first;
     }

@@ -10,6 +10,7 @@ using namespace std;
 // class主体部分应当放在头文件中
 class MyStack {
 public:
+    // member function
     bool push(const string &elem);
     bool pop(string &elem);
     bool peek(string &elem);
@@ -27,6 +28,7 @@ public:
     }
 
 private:
+    // data member
     vector<string> _stack;
 };
 
@@ -133,7 +135,7 @@ using namespace std;
 class TriangularArr {
 public:
     TriangularArr();
-    TriangularArr(int len = 1, int begin_pos = 1);
+    TriangularArr(int len, int begin_pos = 1);
     TriangularArr(const TriangularArr &arr);        // 这其实是copy constructor，用于改变成员逐一初始化的默认行为
 
 private:
@@ -158,6 +160,13 @@ TriangularArr::TriangularArr(int len, int begin_pos) {
 TriangularArr::TriangularArr(const TriangularArr &arr): 
 _length(arr._length), _begin_pos(arr._begin_pos), _next(arr._next - 1) 
 {}
+```
+初始化一个类实例的时候会自动调用对应的构造函数。
+```C++
+TriangularArr t;            // 正确，调用第一个constructor
+TriangularArr t2();         // 错误
+TriangularArr t3 = 8;       // 正确，调用第二个
+TriangularArr t4(8, 3);     // 正确，调用第三个
 ```
 
 析构函数是用户自定义的一个类成员，可以提供，也可以不提供。一旦一个class提供了析构函数，当其实例结束生命时，会自动调用析构函数善后。
@@ -186,7 +195,7 @@ private:
 析构函数并不总是必要的。
 
 
-3、自定义copy constructor
+3、成员逐一初始化
 
 对于上面这个`Matrix`类，当执行
 ```C++
@@ -194,7 +203,7 @@ Matrix mat(4, 4);
 Matrix mat2 = mat;
 ```
 时，编译器会逐一复制`mat`实例的各个成员给`mat2`。这里执行了`mat2._mat_ptr = mat._mat_ptr`，仅仅是指针的赋值运算，而没有重新分配内存空间。这是严重的bug。
-因此，我们应当定义copy constructor来更正成员逐初始化的方式。
+因此，我们应当定义相应的构造函数来更正成员逐一初始化的方式。
 ```C++
 #include <iostream>
 using namespace std;
@@ -207,8 +216,9 @@ public:
         _mat_ptr = new double[row * col];
     }
     
-    // 自定义copy constructor，传入的参数是const ThisClassName &
+    // 该构造函数传入的参数是const ThisClassName &
     Matrix(const Matrix &mat): _row(mat._row), _col(mat._col) {
+        // 在堆上分配空间并依次赋值
         int elem_cnt = _row * _col;
         _mat_ptr = new double[elem_cnt];
         for (int i = 0; i < elem_cnt; i++) {
@@ -235,8 +245,8 @@ using namespace std;
 class TriangularArr {
 public:
     TriangularArr();
-    TriangularArr(int len = 1, int begin_pos = 1);
-    TriangularArr(const TriangularArr &arr);        // 这其实是copy constructor，用于改变成员逐一初始化的默认行为
+    TriangularArr(int len, int begin_pos = 1);
+    TriangularArr(const TriangularArr &arr);        // 成员逐一初始化
 
     // 下面三个函数都在参数列表后面加上了const修饰符，表明它们不会更改其调用者（即某个该类的实例对象）
     int length() const {
@@ -256,8 +266,9 @@ private:
     int _length;
     int _begin_pos;
     int _next;
-    // 这里是用了静态数据成员（该类的全体实例共享的变量，只需要维护一块内存区域即可）
+    // 这里声明了静态数据成员（该类的全体实例共享的变量，只需要维护一块内存区域即可），因此我们需要在程序代码文件中提供其清楚的定义（或初始化）
     static vector<int> _elems;
+    static const int _buf_size = 1024;          // 对于这种静态常量数据成员，此处虽然是声明，但是也可以直接初始化
 };
 
 // trian是一个const reference参数，因此编译器必须保证train在sum()中不会被修改
@@ -285,7 +296,6 @@ TriangularArr::TriangularArr(int len, int begin_pos) {
     _next = _begin_pos - 1;
 }
 
-// 使用成员初始化列表定义构造函数
 TriangularArr::TriangularArr(const TriangularArr &arr):
         _length(arr._length), _begin_pos(arr._begin_pos), _next(arr._next - 1)
 {}
@@ -294,6 +304,7 @@ int TriangularArr::elem(int pos) const {
     return _elems[pos - 1];
 }
 
+// 在类成员函数中访问静态数据成员和访问一般的非静态数据成员一样
 bool TriangularArr::next(int &val) {
     if (_next < _begin_pos + _length - 1) {
         val = _elems[_next++];
@@ -310,7 +321,8 @@ public:
     ValClass(const SomeClass &v): _value(v) {}
     // 这里的函数声明int value() const，而非const int value() const，相当于把类实例的私有变量_value开放了出去，
     // 允许其他程序修改。因此，这里的const等于没有。然而，这里并不会报错。
-    SomeClass value() const {
+    // 注意，这里的返回值是SomeClass &，这是什么意思？其实和返回指针一样，是为了返回特定的“那个对象”以便在外部蹂躏它，而不是返回一个长得一样的另一个东西
+    SomeClass& value() const {
         return _value;
     }
 
@@ -324,10 +336,10 @@ private:
 class ValClass {
 public:
     ValClass(const SomeClass &v): _value(v) {}
-    const SomeClass value() const {
+    const SomeClass& value() const {
         return _value;
     }
-    SomeClass value() {
+    SomeClass& value() {
         return _value;
     }
 
@@ -335,9 +347,248 @@ private:
     SomeClass _value;
 };
 
-void example(cosnt SomeClass *c1, SomeClass &c2) {
+void example(const SomeClass *c1, SomeClass &c2) {
     c1->value();        // 调用const版本
     c2.value();         // 调用non-const版本
 }
 ```
 
+5、copy constructor和this指针：
+```C++
+#include <iostream>
+#include <vector>
+using namespace std;
+
+class TriangularArr {
+public:
+    TriangularArr();
+    TriangularArr(int len, int begin_pos = 8);
+    TriangularArr(const TriangularArr &arr);
+    TriangularArr& copy(const TriangularArr &arr);
+
+private:
+    int _length;
+    int _begin_pos;
+    int _next;
+};
+
+
+TriangularArr::TriangularArr() {
+    _length = 1;
+    _begin_pos = 1;
+    _next = 0;
+}
+
+TriangularArr::TriangularArr(int len, int begin_pos) {
+    _length = len > 0? len: 1;
+    _begin_pos = begin_pos > 0? begin_pos: 1;
+    _next = _begin_pos - 1;
+}
+
+TriangularArr::TriangularArr(const TriangularArr &arr):
+        _length(arr._length), _begin_pos(arr._begin_pos), _next(arr._next - 1)
+{}
+
+// 返回值带有&，是为了返回调用者本身而不是复制出一个一模一样的东西出来
+TriangularArr& TriangularArr::copy(const TriangularArr &arr) {
+    // 是一个指针，指向调用者本身
+    if (this != &arr) {
+        _length = arr._length;
+        _begin_pos = arr._begin_pos;
+        _next = arr._next;
+    }
+    return *this;
+}
+```
+调用copy constructor的方式为
+```C++
+TriangularArr t1, t2(3, 8);
+t1.copy(t2);                    // 被编译器自动翻译成copy(&t1, t2)，注意t1带有引用符号&
+```
+
+6、使用静态数据成员和静态成员函数：
+```C++
+#include <iostream>
+#include <vector>
+using namespace std;
+
+class TriangularArr {
+public:
+    TriangularArr();
+    TriangularArr(int len, int begin_pos = 1);
+    TriangularArr(const TriangularArr &arr);
+    int length() const { return _length; }
+    int begin_pos() const { return _begin_pos; }
+    int elem(int pos) const;
+    bool next(int &val);
+    void next_reset() { _next = _begin_pos - 1; }
+
+    // 声明静态成员函数（只有当该函数不访问任何非静态成员的时候，才可以被声明为static）
+    static bool is_elem(int value);
+    static void gen_elems_to_value(int value);
+
+private:
+    int _length;
+    int _begin_pos;
+    int _next;
+    // 这里声明了静态数据成员（该类的全体实例共享的变量，只需要维护一块内存区域即可），因此我们需要在程序代码文件中提供其清楚的定义（或初始化）
+    static vector<int> _elems;
+    static const int _buf_size = 1024;          // 对于这种静态常量数据成员，此处虽然是声明，但是也可以直接初始化
+};
+
+TriangularArr::TriangularArr() {
+    _length = 1;
+    _begin_pos = 1;
+    _next = 0;
+}
+
+TriangularArr::TriangularArr(int len, int begin_pos) {
+    _length = len > 0? len: 1;
+    _begin_pos = begin_pos > 0? begin_pos: 1;
+    _next = _begin_pos - 1;
+}
+
+TriangularArr::TriangularArr(const TriangularArr &arr):
+        _length(arr._length), _begin_pos(arr._begin_pos), _next(arr._next - 1)
+{}
+
+int TriangularArr::elem(int pos) const {
+    return _elems[pos - 1];
+}
+
+// 在类成员函数中访问静态数据成员和访问一般的非静态数据成员一样
+bool TriangularArr::next(int &val) {
+    if (_next < _begin_pos + _length - 1) {
+        val = _elems[_next++];
+        return true;
+    }
+    return false;
+}
+
+// 在程序文件中定义函数内容时不可再重复带上static关键字
+bool TriangularArr::is_elem(int value) {
+    if (_elems.empty() || _elems[_elems.size() - 1] < value) gen_elems_to_value(value);
+    vector<int>::iterator found_it, end_it = _elems.end();
+    found_it = find(_elems.begin(), _elems.end(), value);
+    return found_it != end_it;
+}
+
+void TriangularArr::gen_elems_to_value(int value) {
+    // do sth...
+}
+
+int main() {
+    int val;
+    cin >> val;
+    // 直接通过类名调用静态成员函数，不依赖于任何该类的实例
+    bool res = TriangularArr::is_elem(val);
+    // do sth...
+}
+```
+
+7、实现iterator class对运算符进行重载：
+
+如果我们想要通过iterator的方式操作类的实例，像下面这样，需要补充什么内容？
+```C++
+TriangularArr tri(1, 8);
+TriangularArr::iterator it = tri.begin(), it_end = tri.end();
+while (it != it_end) {
+    cout << *it << " ";
+    it++;
+}
+```
+这意味着我们要为`TriangularArr::iterator`提供运算符的重载。
+
+下面给出了**为一个类定义作用在其上的迭代器**的完整步骤：
+```C++
+#include <iostream>
+#include <vector>
+using namespace std;
+
+class TriangularArrIter {
+public:
+    TriangularArrIter(int idx): _index(idx) {}
+    // 重载运算符，成员函数的命名规则为"operator OP"，其中OP指具体的运算符
+    // 前三个成员函数的返回值类型为boo，第四个的返回值类型为TriangularArrIter&，第五个的返回值类型为TriangularArrIter
+    bool operator==(const TriangularArrIter&) const;
+    bool operator!=(const TriangularArrIter&) const;
+    int operator*() const;
+    TriangularArrIter& operator++();        // 重载前置++
+    TriangularArrIter operator++(int);      // 重载后置++
+
+private:
+    void check_integrity() const;
+    // _index是本类维护的索引值，用于索引TriangularArr中_elems中的元素
+    // 因此，本类需具备访问TriangularArr的成员的权限（使用friend机制）
+    int _index;
+};
+
+// 通常以inline func的形式定义运算符重载成员函数（放在头文件中）
+inline bool TriangularArrIter::operator==(const TriangularArrIter &arr) const {
+    return _index == arr._index;
+}
+
+inline bool TriangularArrIter::operator!=(const TriangularArrIter &arr) const {
+    // !=和==性质相反，用后者实现前者
+    return !(*this == arr);
+}
+
+// 到目前为止，都是给出了member function这样的定义方式
+inline int TriangularArrIter::operator*() const {
+    check_integrity();
+    return TriangularArr::_elems[_index];
+}
+
+// 下面给出了int operator*() const的非成员函数的定义方式
+inline int operator*(const TriangularArrIter &arr) {
+    // 这是非成员函数的定义方式，因此不具备访问non-public member的权力
+    // 如果check_integrity()是一个private成员函数，则无法被arr调用
+    // 但是这里我们依然调用了，这是因为用到了friend机制（下一条给出，这里先不分析）
+    arr.check_integrity();
+    return TriangularArr::_elems[_index];
+}
+
+// 重载前置++
+inline TriangularArrIter& TriangularArrIter::operator++() {
+    ++_index;
+    check_integrity();
+    return *this;
+}
+
+// 重载后置++（编译器自动为其产生一个int参数0），这个用不到的参数之所以出现在这里是为了避免破坏重载规则（即参数列表必须独一无二）
+inline TriangularArrIter TriangularArrIter::operator++(int) {
+    TriangularArrIter tmp = *this;
+    ++_index;
+    check_integrity();
+    return tmp;
+}
+
+inline void TriangularArrIter::check_integrity() const {
+    if (_index >= TriangularArr::_buf_size) throw iterator_overflow();
+    if (_index >= TriangularArr::_elems.size()) TriangularArr::gen_elements(_index + 1);
+}
+
+
+// 修正TriangularArr，使其可以通过迭代器的方式被访问
+// #include "TriangularArrIter.h"
+class TriangularArr {
+public:
+    // 使用潜逃类型屏蔽具体的迭代器TriangularArrIter的实现细节，使用者仅需要用iterator来定义作用于TriangularArr上的迭代器即可
+    typedef TriangularArrIter iterator;
+    TriangularArrIter begin() const { return TriangularArrIter(_begin_pos); }
+    TriangularArrIter end() const { return TriangularArrIter(_begin_pos + _length); }
+    
+private:
+    int _begin_pos;
+    int _length;
+    // ...
+};
+
+int main() {
+    TriangularArr tri;
+    // 使用class scope运算符::指引编译器找到TriangularArr的迭代器的定义
+    TriangularArr::iterator it = tri.begin();
+}
+```
+
+8、使用friend机制
