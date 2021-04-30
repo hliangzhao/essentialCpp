@@ -10,7 +10,7 @@ using namespace std;
 // class主体部分应当放在头文件中
 class MyStack {
 public:
-    // member function
+    // member function（成员函数）
     bool push(const string &elem);
     bool pop(string &elem);
     bool peek(string &elem);
@@ -28,7 +28,7 @@ public:
     }
 
 private:
-    // data member
+    // data member（数据成员）
     vector<string> _stack;
 };
 
@@ -136,7 +136,7 @@ class TriangularArr {
 public:
     TriangularArr();
     TriangularArr(int len, int begin_pos = 1);
-    TriangularArr(const TriangularArr &arr);        // 这其实是copy constructor，用于改变成员逐一初始化的默认行为
+    TriangularArr(const TriangularArr &arr);        // 自定义成员逐一初始化的方式
 
 private:
     int _length;
@@ -210,13 +210,11 @@ using namespace std;
 
 class Matrix {
 public:
-    // 通过构造函数和析构函数，让类自动完成了堆内存的分配和管理。
-    // 类的使用者无需操心这些内容
     Matrix(int row, int col): _row(row), _col(col) {
         _mat_ptr = new double[row * col];
     }
     
-    // 该构造函数传入的参数是const ThisClassName &
+    // 该构造函数传入的参数是const ThisClassName &，这里的引用符号表示直接作用在调用者身上
     Matrix(const Matrix &mat): _row(mat._row), _col(mat._col) {
         // 在堆上分配空间并依次赋值
         int elem_cnt = _row * _col;
@@ -543,7 +541,7 @@ while (it != it_end) {
     it++;
 }
 ```
-这意味着我们要为`TriangularArr::iterator`提供运算符的重载。
+**这意味着我们要为`TriangularArr::iterator`提供运算符的重载。**
 
 下面给出了**为一个类定义作用在其上的迭代器**的完整步骤：
 ```C++
@@ -789,5 +787,87 @@ int count_less_than(const vector<int> &v, int comp) {
         if (lt(v[i])) res++;
     }
     return res;
+}
+```
+
+10、重载iostream运算符：
+```C++
+// 重载iostream运算符（按照指定格式读入和写出）
+// 重载cout起到的是to_string的效果，最后返回cout以便可以串接多个output运算符
+// 不将cout和cin写成成员函数是因为，作为一个成员函数，其左操作数必须是本类的对象，因此该函数的调用将变成：tri << cout;
+// 这显然是不合乎习惯的。
+ostream& operator<<(ostream &os, const TriangularArr &arr) {
+    os << "(" << arr.length() << ")" << endl;
+    return os;
+}
+
+istream& operator>>(istream &is, TriangularArr &arr) {
+    int len;
+    is >> len;
+    arr.set_length(len);
+    return is;
+}
+```
+
+11、定义并使用指向类成员函数的指针：
+```C++
+#include <iostream>
+#include <vector>
+using namespace std;
+
+class num_sequence {
+public:
+    // 将pm声明为一个指针，指向num_sequence的成员函数，该成员函数的返回类型是void，且仅有一个参数，类型为int。
+    // void (num_sequence::*pm)(int);
+    // void (num_sequence::*pm)(int) = 0则是声明的时候同时初始化为nullptr。
+    // 下面这种方式使用了typedef将该类型的指针化名为PtrType，这样就可以PtrType pm = 0直接声明一个该类型的函数指针。
+    typedef void (num_sequence::*PtrType)(int);
+
+    // _ptr可以指向本类中的、下面的任意函数。这些函数计算不同类型数列的数值并存放到对应的vector中
+    void fib(int);
+    void pell(int);
+    void lucas(int);
+    void triangular(int);
+    void square(int);
+    void pentagonal(int);
+
+    void use_ptr() {
+        // 使用取址运算符和class scope运算符获得成员函数的地址
+        _ptr = &num_sequence::fib;
+    }
+    
+    int elem(int pos);                      // 产生当前_ptr所指向的方法产生pos位置的元素并存入_elem
+
+private:
+    PtrType _ptr;                           // 指向成员函数的指针
+    vector<int> *_elem;                     // 指向目前所用的数列存放的vector
+    static const int num_seq = 7;
+    static PtrType func_tbl[num_seq];       // 直接将六个满足条件的成员函数的地址存放在静态数组中
+    static vector<vector<int>> seq;         // 这是为了避免重复计算每个数列的元素，使用静态变量存放每一个数列的各个元素
+};
+
+// 提供静态数据成员的定义
+const int num_sequence::num_seq;                    // 已在声明时指定，无需再指定
+vector<vector<int>> num_sequence::seq(num_seq);
+num_sequence::PtrType num_sequence::func_tbl[num_seq] = {
+        nullptr, &num_sequence::fib, &num_sequence::pell, &num_sequence::lucas,
+        &num_sequence::triangular, &num_sequence::square, &num_sequence::pentagonal
+};
+
+int num_sequence::elem(int pos) {
+    if (pos > _elem->size()) {
+        (this->*_ptr)(pos);
+    }
+    return (*_elem)[pos - 1];
+}
+
+int main() {
+    // 使用指向成员函数的指针
+    num_sequence ns;
+    num_sequence *pns = &ns;
+    num_sequence::PtrType pm = &num_sequence::fib;      // 定义指向成员函数的指针
+    int pos =0 ;
+    (ns.*pm)(pos);                                      // 指针pm必须通过同一类的对象（这里便是ns和pns）实例加以调用
+    (pns->*pm)(pos);
 }
 ```
