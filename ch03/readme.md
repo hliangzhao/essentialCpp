@@ -2,15 +2,16 @@
 
 1、标准模版库（STL）主要由两类组件：
 + **容器**。包括vector、list、set、map等；
-+ 操作这些容器的**泛型算法**，包括`find()`、`sort()`、`merge()`、`repalce()`等。
-牢记容器及相关泛型算法可以大大提高编程效率。
++ 操作这些容器的**泛型算法**，包括`find()`、`sort()`、`merge()`、`replace()`等。
 
+容器及相关的算法运行速度很快，牢记容器及相关泛型算法可以大大提高编程效率。
 容器分为顺序性容器和关联性容器。前者包含vector和list，主要在其上进行迭代操作；map和set属于后者，可以让我们快速查找容器中的元素值。
 
 3、抽象出指针的算术运算，节省代码量：
+以下部分由三个层层递进的问题组成。
 
-以下部分有三个问题层层递进组成。实现一个查找函数满足如下需求：
-+ 问题一：给定一个存储整数的vector以及一个整数值。如果该值在vector内则返回vector内指向该值的指针，否则返回空指针。
+实现一个查找函数满足如下需求：
++ 问题一：给定一个存储整数的vector以及一个整数值。如果该值在vector内则返回该值的地址，否则返回空指针。
 + 问题二：如果存储数值的是数组，并且不要求数值类型是int，如何操作？
 + 问题三：如何再次改进使得find同时支持数组和vector？
 ```C++
@@ -75,7 +76,7 @@ template <typename elemType> inline const elemType *my_end(const vector<elemType
 单纯通过上述指针运算是无法实现的，这是因为list本质是一个双向链表，前后元素的地址不一定相邻。指针运算只有在元素被分配到连续的一块区域时才有效。
 解决这个问题的办法是在底层指针的行位置上提供一层抽象。这就是**泛型指针iterator**的作用。
 
-4、泛型指针：
+4、使用泛型指针：
 
 先来看看STL中iterator的用法。
 ```C++
@@ -165,7 +166,7 @@ int main() {
     vector<int> v2(arr, arr + 4);
     deque<int> d2(arr, arr + 4);
     
-    // 根据已有容器产生新容器（整个复制）
+    // 根据已有容器产生新容器（整个复制），这里调用了copy constructor，后面会讲到
     list <int> l3(l2);
 }
 ```
@@ -221,10 +222,10 @@ int main() {
     // void insert(iterator position, int count, elemType)
     string str("abc");
     vector<string> s;
-    auto sIt = s.begin();           // C++11引入的新特性，自行判定迭代器的类
+    auto sIt = s.begin();           // C++11引入的新特性，使用auto关键字自行判定迭代器的类
     s.insert(sIt, 5, str);
 
-    //void insert(iterator1 position, iterator2 first, iterator2 last)
+    // void insert(iterator1 position, iterator2 first, iterator2 last)
     int ia1[] = {1, 2, 3, 4, 5, 55, 89};
     int ia2[] = {8, 13, 21};
     list<int> elems(ia1, ia1 + 7);
@@ -340,7 +341,7 @@ int main() {
 ```
 
 （3）**通过函数指针来调用传入的比较方法仍然有不可忽视的代价，还有没有别的方法？**——使用函数对象（function object）。
-函数对象是类的实例对象，这些类对函数调用运算符做了重载操作，是的函数对象可以被当作一般函数来使用。
+函数对象是类的实例对象，这些类对函数调用运算符做了重载操作，使得函数对象可以被当作一般函数来使用。
 
 在下面的例子中，通过传入函数对象`greater<int>()`给`sort()`函数，使得`sort()`按照降序排列。
 ```C++
@@ -434,7 +435,7 @@ int main() {
     cout << endl;
 }
 ```
-至此，我们实现的函数和元素类型无关，无比较操作无关，约合容器类型无关了。可以说，我们实现了了一个泛型算法。
+至此，我们实现的函数和元素类型无关，和比较操作无关，也和容器类型无关了。可以说，我们实现了了一个泛型算法。
 
 （5）现在，还有最后一个小问题：上述代码需要预先分配`arr2`和`v2`的大小，并且不能太小，这是对内存资源的一种浪费。可以不预留吗？——使用iterator insertor。
 ```C++
@@ -442,13 +443,13 @@ int main() {
 #include <vector>
 #include <functional>
 #include <algorithm>
-#include <iterator>
+#include <iterator>          // 包含本头文件
 using namespace std;
 
 template <typename inIter, typename outIter, typename elemType, typename comp>
 outIter filter(inIter first, inIter last, outIter at, const elemType &val, comp pred) {
     while ((first = find_if(first, last, bind2nd(pred, val))) != last) {
-        *at++ = *first++;       // 存放满足要求的元素
+        *at++ = *first++;
     }
 }
 
@@ -463,13 +464,13 @@ int main() {
     // front_inserter()只适用于list和deque
     filter(v.begin(), v.end(), back_inserter(v2), 50, greater<int>());
 
-    // 因为arr2和v2的元素个数小于10，但我们无法知道具体有多少个，因此全部打印出来
+    // arr2的元素个数小于10，但我们无法知道具体有多少个，因此全部打印出来
     for (auto i: arr2) {
         cout << i << " ";           // 后面的元素未经初始化，可以是任意值
     }
     cout << endl;
     for (auto i : v2) {
-        cout << i << " ";           // 没有后缀0了
+        cout << i << " ";           // 没有后缀0了，因为我们v2没有冗余部分
     }
     cout << endl;
 }
@@ -497,7 +498,7 @@ int main() {
     int count = 0;
     if (words.count("abc")) count = words["bac"];
 
-    // 不推荐的查询操作：{"xyz": 0}会被添加进words
+    // 不推荐的查询操作：这样会导致("xyz": 0)被添加进words
     count = 0;
     if (!(count = words["xyz"])) {
         cout << words["xyz"] << endl;
@@ -528,7 +529,7 @@ int main() {
 }
 ```
 
-10、使用后输入输出流迭代器（iostream iterator）：
+10、使用输入输出流迭代器（iostream iterator）：
 
 从标准输入读入文本、对单词排序并输出，常规解法是：
 ```C++
@@ -564,7 +565,7 @@ int main() {
     istream_iterator<string> eof;           // 不指定则代表EOF
     
     vector<string> text;
-    // 像操作容器（iterator）那样操作io流，注意此处使用了iterator inserter。
+    // 像操作容器（iterator）那样操作io流，此处使用了泛型算法copy()、sort()和iterator inserter。
     copy(is, eof, back_inserter(text));
     sort(text.begin(), text.end());
     
