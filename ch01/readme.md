@@ -2,9 +2,11 @@
 
 1、数据的输入输出，并非C++程序语言本身定义的一部分，而是由C++的一套**面向对象的类层次体系**提供支持，并作为C++标准库的一员。
 
-2、class的定义一般非为两部分，**头文件**用来声明该class所提供的各种操作行为，**程序代码文件**则包含了这些操作行为的实现内容。
+2、class的定义一般非为两部分，头文件和程序代码文件。
++ **头文件**用来声明该class所提供的各种操作行为；
++ **程序代码文件**则包含了这些操作行为的具体实现（定义）。
 
-3、**命名空间**是一种将库名称封装起来的办法，从而避免命名冲突。`using namespace std`是将命名空间`std`内的名称曝光的最简方法。
+3、**命名空间**是一种将库名称封装起来的办法，从而避免命名冲突。`using namespace ns`是将命名空间`ns`内的定义的名称曝光的最简方法。
 
 4、定义对象需要为该对象命名并赋予数据类型。数据类型决定了对象所能持有的数值范围以及占用多少内存空间。内置的数据类型包括**布尔值、整数、浮点数和字符**。我们也可以通过`struct`和`class`定义自己的数据类型。
 
@@ -20,10 +22,10 @@ complex<double> p(0, 7);
 const int len = 100;
 int arr[len];
 ```
-相比于数组，使用模版类vector更好。熟练掌握vector的常用方法：https://www.runoob.com/w3cnote/cpp-vector-container-analysis.html。
+相比于数组，使用模版类vector更好。
 ```C++
 #include <vector>
-vector<int> vec(len);       // 允许变长，甚至直接vector<int> vec也是对的
+vector<int> vec(len);       // 允许变长，甚至直接vector<int> vec;也是对的
 ```
 
 初始化数组的时候允许不指定长度，编译器可自行计算大小：
@@ -41,7 +43,7 @@ vector<int> vec(arr, arr + arr_len);
 ```C++
 #include <cstdlib>
 srand(some_int_value);          // 输入伪随机数生成器种子
-out = rand() % max_value;       // rand()返回[0, 最大int值之间的一个整数]，通过取模运算限定输出范围
+out = rand() % max_value;       // rand()返回[0, 最大int值]之间的一个整数，通过取模运算限定输出范围
 ```
 
 9、文件读写基本操作：
@@ -49,7 +51,7 @@ out = rand() % max_value;       // rand()返回[0, 最大int值之间的一个�
 （1）写文件：
 ```C++
 #include <iostream>
-#include <fstream>
+#include <fstream>      // 包含此头文件
 using namespace std;
 
 int main() {
@@ -74,7 +76,7 @@ int main() {
 using namespace std;
 
 int main() {
-    // 打开一个可供输出的文件（create），使用追加模式
+    // 打开一个可供读取的文件
     ifstream infile("data.txt");
     if (!infile) {
         cerr << "Can't open file" << endl;
@@ -82,7 +84,7 @@ int main() {
         // data.txt中一行中有一个string，两个整数
         string a;
         int b, c;
-        // 依次从文本中读取一行的内容，一旦文件末尾，infile >> a将返回false，因此while循环中止
+        // 依次从文本中读取一行的内容，一旦抵达文件末尾，infile >> a将返回false，因此while循环中止
         while (infile >> a) {
             infile >> b >> c;
             cout << a << ' ' << b << ' ' << c << endl;
@@ -91,20 +93,21 @@ int main() {
 }
 ```
 
-（3）同时读写：声明`fstream iofile("data.txt", ios_base::in|ios_base::app)`。因为使用了追加写模式，所以文件位置会被定位在末尾。如果不更正文件位置，读文件是会直接“文件结束”，因此读之前需要重新定位至文件起始位置：`iofiile.seekg(0)`。
+（3）同时读写：声明`fstream iofile("data.txt", ios_base::in|ios_base::app)`。因为使用了追加写模式，所以文件位置会被定位在末尾。如果不更正文件位置，读文件是会直接“文件结束”，因此读之前需要使用`iofile.seekg(0)`重新定位至文件起始位置。
 
 
 10、string对象和C-style字符数组之间有两个主要差异：
-+ string对象会动态地随着字符串长度而增加其存储空间，C-style字符数组只能分配固定空间，并期望这个空间可以容纳对应的字符串；
-+ C-style字符数组不记录自身有效长度，需要遍历数组直到遇到`\0`字符（`int strlen(const char *)`的工作原理）。
++ string对象会动态地随着字符串长度而增加其存储空间，C-style字符数组只能分配固定空间，并**期望**这个空间可以容纳对应的字符串；
++ C-style字符数组不记录自身有效长度，需要遍历数组直到遇到`\0`字符（`int strlen(const char *)`的工作原理）。string对象使用`str.size()`获得其自身的长度。
 ```C++
+#include <iomanip>
 const int name_size = 128;
 char username[name_size];
 // 用操纵符setw保证读入字符个数不会超过127
 cin >> setw(name_size) >> username;
 ```
 
-11、读入一行不定长数据的方法：
+11、读入一行不定长数据的方法：直接将读入操作放在while循环内，做编程题时，到文件末尾会自动退出while循环。
 
 （1）使用数组：
 ```C++
