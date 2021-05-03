@@ -160,6 +160,7 @@ public:
     };
     // 如果这里不为静态变量分配堆内存，就会直接报错
     // 这是因为_seqs的类型是vector<vector<int>>，不能像单纯的使用vector<int>那样定义，必须要分配堆内存
+    // 其实，constructor应当是给non-static数据成员初始化的时候用的，static成员函数在程序代码文件定义更恰当，下面给出了_seqs在程序代码文件中的定义。
 //    NumSequence() {
 //        _seqs = *new vector<vector<int>>(_num_seq);
         // 下面这四行是不必要的
@@ -311,7 +312,7 @@ int NumSequence::elem(int pos) {
 }
 
 bool NumSequence::is_size_ok(int size) const {
-    if (size <= 0 || size > _max_size) return false;
+    if (size < 0 || size > _max_size) return false;
     return true;
 }
 
@@ -332,7 +333,399 @@ int main() {
     }
 }
 ```
+该程序的输出为
+```
+fib: 1 1 2 3 5 8 13 21 34 55 
+pell: 1 2 3 4 5 6 7 8 9 10 
+lucas: 1 2 3 4 5 6 7 8 9 10 
+triangular: 1 2 3 4 5 6 7 8 9 10 
+square: 1 4 9 16 25 36 49 64 81 100 
+pentagonal: 1 4 9 16 25 36 49 64 81 100 
+```
 接下来，我们将用继承的方式来实现多态。
 
-4、实现多态：
+4、实现数列问题多态：
 
+（1）第一步，定义一个抽象基类。定义抽象基类的第一个步骤是**找出所有子共通的操作行为**。第二步，**找出哪些操作行为与类型相关**，它们应当被定义为虚函数，
+各派生了然后再给出自己独特的实现。第三步，**确定每个操作行为的访问层级**（public、protected还是private），
+相关的讨论见https://www.cnblogs.com/qlwy/archive/2011/08/25/2153584.html。
+
+因此定义基类如下：
+```C++
+#include <iostream>
+using namespace std;
+
+class NumSequence {
+public:
+    // 作为基类，析构函数应该被声明为virtual，应该需要根据实际对象的类型选择调用哪一个析构函数。
+    // 基类的destructor不应该被声明为纯虚函数，最好是处理方式是提供空白定义。
+    virtual ~NumSequence() {};
+    // 将虚函数赋值为0，意即将其设定为一个纯虚函数。
+    // 纯虚函数意味着本函数对本类而言没有实际意义，只在派生类中才有意义。
+    // 一个类如果有一个或多个纯虚函数，相当于本类的定义是不完整的，因此程序无法为其产生任何对象。
+    // 这种类只能作为派生类的子对象使用，前提是这些派生类必须为所有虚函数提供确切的定义。
+    virtual int elem(int pos) const = 0;
+    virtual string what_am_i() const = 0;
+    virtual ostream& print(ostream &os = cout) const = 0;
+    // 显然，静态成员函数无法被声明为虚函数。
+    static int max_elems() { return _max_elems; }
+
+protected:
+    virtual void gen_elems(int pos) const = 0;
+    static bool check_integrity(int pos) const;
+    const static int _max_elems = 1024;
+};
+
+bool NumSequence::check_integrity(int pos) const {
+    if (pos <= 0 || pos > _max_elems) {
+        cerr << "Invalid position: " << pos << endl;
+        return false;
+    }
+    return true;
+}
+
+ostream& operator<<(ostream &os, const NumSequence *ns) {
+    return ns->print(os);
+}
+```
+
+（2）第二步，定义派生类。
+
+派生类由基类的non-static数据成员和派生类自身的non-static数据成员组成。
+```C++
+#include <iostream>
+#include <vector>
+using namespace std;
+
+// 头文件
+class NumSequence {
+public:
+    virtual ~NumSequence() {};
+    virtual int elem(int pos) const = 0;
+    virtual string what_am_i() const = 0;
+    virtual ostream& print(ostream &os = cout) const = 0;
+    static int max_elems() { return _max_elems; }
+
+protected:
+    virtual void gen_elems(int pos) const = 0;
+    static bool check_integrity(int pos) ;
+    const static int _max_elems = 1024;
+};
+
+class Fibonacci: public NumSequence {
+public:
+    Fibonacci(int len = 1, int begin_pos = 1): _length(len), _begin_pos(begin_pos) {}
+    // 派生类内对该成员的任何使用，都会被解析为该派生类自身的那份成员，而非基类的那份成员，这就是override。
+    virtual int elem(int pos) const;
+    virtual string what_am_i() const {
+        return "Fibonacci";
+    }
+    virtual ostream& print(ostream &os = cout) const;
+    int length() const { return _length; }
+    int begin_pos() const { return _begin_pos; }
+
+private:
+    virtual void gen_elems(int pos) const;
+    int _length;
+    int _begin_pos;
+    static vector<int> _elems;
+};
+
+inline void display(ostream &os, const NumSequence &ns, int pos) {
+    os << "The element at position " << pos << 
+    " for the " << ns.what_am_i() << 
+    " sequence is " << ns.elem(pos) << endl;
+}
+
+
+// 程序代码文件
+vector<int> Fibonacci::_elems;
+
+bool NumSequence::check_integrity(int pos) {
+    if (pos <= 0 || pos > _max_elems) {
+        cerr << "Invalid position: " << pos << endl;
+        return false;
+    }
+    return true;
+}
+
+ostream& operator<<(ostream &os, const NumSequence &ns) {
+    return ns.print(os);
+}
+
+int Fibonacci::elem(int pos) const {
+    // 调用自基类继承而来的函数check_integrity()
+    if (!check_integrity(pos)) return 0;
+    // 下面的代码是Fibonacci::gen_elems()而非::gen_elems(pos)，这是为了跳过虚函数的机制，在编译时就完成解析，提高代码性能。
+    if (pos > _elems.size()) Fibonacci::gen_elems(pos);
+    return _elems[pos - 1];
+}
+
+ostream& Fibonacci::print(ostream &os) const {
+    int elem_pos = _begin_pos - 1;
+    int end_pos = elem_pos + _length;
+    if (end_pos > _elems.size()) Fibonacci::gen_elems(end_pos);
+    os << "(" << elem_pos << ", " << end_pos << "): ";
+    while (elem_pos < end_pos) os << _elems[elem_pos++] << " ";
+    os << endl;
+    return os;
+}
+
+void Fibonacci::gen_elems(int pos) const {
+    if (_elems.empty()) {
+        _elems.push_back(1);
+        _elems.push_back(1);
+    }
+    // 下面这个判断有点啰嗦了，是不必要的。
+    if (_elems.size() <= pos) {
+        int ix = _elems.size();
+        int n_1 = _elems[ix - 1];
+        int n_2 = _elems[ix - 2];
+        for (; ix <= pos; ix++) {
+            int tmp = n_2 + n_1;
+            _elems.push_back(tmp);
+            cout << "Generated elem: " << tmp << endl;
+            n_2 = n_1;
+            n_1 = tmp;
+        }
+    }
+}
+
+int main() {
+    Fibonacci fib;
+    cout << "fib: begin at 1 for 1 element: \n" << fib << endl;
+
+    Fibonacci fib2(16);
+    cout << "fib2: begin at 1 for 16 element: \n" << fib2 << endl;
+
+    Fibonacci fib3(8, 12);
+    cout << "fib3: begin at 12 for 8 element: \n" << fib3 << endl;
+}
+```
+
+5、基类不应该过分抽象：对于上面的例子，部分成员应当被提升值基类的层次，我们将新的类定义如下：
+```C++
+#include <iostream>
+#include <vector>
+using namespace std;
+
+class NumSequence {
+public:
+    virtual ~NumSequence() {}
+    virtual string what_am_i() const = 0;
+    int elem(int pos) const;
+    ostream& print(ostream &os = cout) const;
+
+    int length() const { return _length; }
+    int begin_pos() const { return _begin_pos; }
+    static int max_elems() { return 1024; }
+
+protected:
+    virtual void gen_elems(int pos) const = 0;
+    bool check_integrity(int pos, int size) const;
+    // 这里将抽象基类的构造函数置为protected，这是因为本类是无法被实例化，那么直接杜绝其被外界访问的可能性可以降低写出bug的概率。
+    NumSequence(int len, int begin_pos, vector<int> &re):
+    _length(len), _begin_pos(begin_pos), ref_elems(re) {}
+
+    // 这些数据成员被提升至基类的层次
+    int _length;
+    int _begin_pos;
+    // 定义为引用，则无需再检查是否null，并且需要在constructor中通过参数化列表的形式被初始化，且无法再更改。
+    // 因为引用不是指针，是无法被更改的。
+    // 用于指向派生类中的数据成员_elem。
+    vector<int> &ref_elems;
+};
+
+class Fibonacci: public NumSequence {
+public:
+    Fibonacci(int len = 1, int begin_pos = 1): NumSequence(len, begin_pos, _elems) {}
+    virtual string what_am_i() const {
+        return "Fibonacci";
+    }
+
+protected:
+    virtual void gen_elems(int pos) const;
+    static vector<int> _elems;
+};
+```
+应当说明，所谓设计，必须来来回回借着程序猿的经验和用户的反馈演进。
+
+6、派生类的初始化与复制行为分析：
+
+```C++
+#include <iostream>
+#include <vector>
+using namespace std;
+
+class NumSequence {
+public:
+    virtual ~NumSequence() {}
+    virtual string what_am_i() const = 0;
+    int elem(int pos) const;
+    ostream& print(ostream &os = cout) const;
+
+    int length() const { return _length; }
+    int begin_pos() const { return _begin_pos; }
+    static int max_elems() { return 1024; }
+    NumSequence& operator=(const NumSequence &rhs) {
+        if (this != &rhs) {
+            _length = rhs._length;
+            _begin_pos = rhs._begin_pos;
+            // 下面这一行不妥！因为引用无法被修改。
+            // 但是不妨碍我们阐述如何"在派生类中使用基类的成员逐一初始化方法"。
+            ref_elems = rhs.ref_elems;
+        }
+        return *this;
+    }
+
+protected:
+    virtual void gen_elems(int pos) const = 0;
+    bool check_integrity(int pos, int size) const;
+    NumSequence(int len, int begin_pos, vector<int> &re):
+    _length(len), _begin_pos(begin_pos), ref_elems(re) {}
+
+    // 这些数据成员被提升至基类的层次
+    int _length;
+    int _begin_pos;
+    // 定义为引用，则无需再检查是否null，并且需要在constructor中通过参数化列表的形式被初始化，且无法再更改。
+    // 因为引用不是指针，是无法被更改的。
+    // 用于指向派生类中的数据成员_elem。
+    vector<int> &ref_elems;
+};
+
+class Fibonacci: public NumSequence {
+public:
+    Fibonacci(int len = 1, int begin_pos = 1): NumSequence(len, begin_pos, _elems) {}
+    virtual string what_am_i() const {
+        return "Fibonacci";
+    }
+    // 定义一个copy constructor。因为没有内存分配的需求，直接调用基类的、默认的成员逐一初始化方法即可。
+    // 本copy constructor是无需定义的。
+    Fibonacci(const Fibonacci &rhs): NumSequence(rhs) {}
+    // 需要显著指出调用了基类的copy assignment operator。
+    // 同样地，本copy assignment operator是无需定义的。
+    Fibonacci& operator=(const Fibonacci &rhs) {
+        if (this != &rhs) NumSequence::operator=(rhs);
+        return *this;
+    }
+
+protected:
+    virtual void gen_elems(int pos) const;
+    static vector<int> _elems;
+};
+```
+
+7、在派生类中定义虚函数：
+
+在定义派生类的时候，我们必须决定，是覆盖基类中的虚函数，还是原封不动加以继承。如果继承了一个纯虚函数，则这个派生类也会被视为抽象类，
+程序无法为期定义任何对象。如果决定覆盖基函数，那么**其函数原型必须完全符合基类所声明的函数原型，包括参数列表、返回类型和常量性**。
+当然，有一种情况是特例。
+
+详见注释：
+```C++
+#include <iostream>
+#include <vector>
+using namespace std;
+
+class NumSequence {
+public:
+    virtual ~NumSequence() {}
+    virtual string what_am_i() const = 0;
+    virtual NumSequence *clone() = 0;
+
+protected:
+    NumSequence(int len, int begin_pos, vector<int> &re):
+    _length(len), _begin_pos(begin_pos), ref_elems(re) {}
+
+    int _length;
+    int _begin_pos;
+    vector<int> &ref_elems;
+};
+
+class Fibonacci: public NumSequence {
+public:
+    Fibonacci(int len = 1, int begin_pos = 1): NumSequence(len, begin_pos, _elems) {}
+    // 只有当派生类所提供的函数和基类中的函数声明完全一致，才是override！
+    // 这是对基类成员函数virtual string what_am_i() const的override
+    virtual string what_am_i() const {
+        return "Fibonacci";
+    }
+    // 这不是override
+    virtual string what_am_i() {
+        return "Fibonacci";
+    }
+    // 下面这个是一个例外：这是对基类成员函数virtual NumSequence *clone()的override
+    // 当基类的虚函数返回的是某个基类形式（通常是引用或指针）时，派生类中的覆盖允许和基类中的成员函数有略微不同的声明。
+    //这里不需要virtual关键字，因为我们不需要等到运行时才确定该调用哪一个clone()函数。
+    Fibonacci *clone() {
+        return new Fibonacci(*this);
+    }
+    
+
+protected:
+    static vector<int> _elems;
+};
+```
+
+8、虚函数的静态解析：
+
+有两种情况虚函数机制不会出现预期的行为：
++ **基类的constructor和destructor内；**
++ **使用的是基类的对象本身，而不是该对象的引用或指向该对象的指针。**
+
+对于第一种情况，要知道，在构造派生类对象时，会率先调用基类的构造函数，如果在基类的构造函数中调用某个虚函数，由于此时派生类中的数据成员尚未初始化，
+因此运行时并不会调用派生类中定义的、对应的虚函数，而是直接调用基类中的该虚函数。同样地，如果在基类的destructor中调用虚函数，
+因为此时派生类的数据成员已经被销毁，因此调用的也是基类中定义的虚函数，而非派生类中的虚函数，否则就会有访问非法内存的风险。
+
+对于第二种情况，当我们为基类声明一个实际对象的时候，实际上已经在程序堆栈中为该对象分配了足够的空间以容纳该对象。但如果稍后传入的是一个派生类对象，
+那么就可能没有足够的空间来存放派生类中新定义的成员。因此，只会调用基类的虚函数实现以避免访问非法内存空间。
+
+9、运行时的类型鉴定机制：
+
+使用`typeid`在运行时获得对象真正指向的类型。
+```C++
+#include <iostream>
+#include <vector>
+#include <typeinfo>     // 包含本头文件
+using namespace std;
+
+class NumSequence {
+public:
+    virtual ~NumSequence() {}
+    const string who_am_i() const {
+        // typeid()返回了this实际指向的对象的信息，每一个继承了本类的多态类都有自己对应的type_info对象
+        return typeid(*this).name();
+    }
+
+protected:
+    NumSequence(int len, int begin_pos, string name, vector<int> &re):
+    _length(len), _begin_pos(begin_pos), _name(name), ref_elems(re) {}
+
+    int _length;
+    int _begin_pos;
+    string _name;
+    vector<int> &ref_elems;
+};
+
+class Fibonacci: public NumSequence {
+public:
+    Fibonacci(int len = 1, int begin_pos = 1, string name = "Fibonacci"):
+    NumSequence(len, begin_pos, name, _elems) {}
+
+protected:
+    static vector<int> _elems;
+};
+
+int main() {
+    NumSequence *ns = new Fibonacci;
+    // 静态无条件转换
+    if (typeid(*ns) == typeid(Fibonacci)) {
+        Fibonacci *fib = static_cast<Fibonacci*>(ns);
+        // 调用fib的方法：fib.some_member_func()...
+    }
+    // 动态转换：运行时鉴定ns所指对象是否属于Fibonacci类
+    if (Fibonacci *fib2 = dynamic_cast<Fibonacci*>(ns)) {
+        // 调用fib的方法：fib.some_member_func()...
+    }
+}
+```
