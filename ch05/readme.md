@@ -3,10 +3,10 @@
 1、面向对象编程的两个最主要特征是**继承**和**多态**。前者使得我们得以将一群相关的类组织起来，
 让我们得以分享其间的共通数据和操作行为。后者让我们以一种类型无关的方式来操作类对象，并赋予我们更多的弹性来加入或移除任何特定类。
 
-继承基值定义了父子关系。父类定义了所有子类共通的公有接口和私有实现。每个子类都可以增加或覆盖继承而来的东西，以实现其自身独特的行为。
-在C++中，父类被称为基类，子类被称为派生类。
+继承机制定义了父子关系。父类定义了所有子类共通的公有接口和私有实现。每个子类都可以增加或覆盖继承而来的东西，以实现其自身独特的行为。
+在C++中，父类被称为**基类**，子类被称为**派生类**。
 
-使用抽象基类的指针或引用来操纵其公共接口，实际执行起来时需要等到运行时才能确定指针或引用所指的实际对象的类型。
+使用抽象基类的**指针**或**引用**来操纵其公共接口，实际执行起来时需要等到运行时才能确定指针或引用所指的实际对象的类型。
 
 2、通过以下实例理解继承机制：
 ```C++
@@ -20,7 +20,7 @@ public:
     LibMat() {
         cout << "LibMat::LibMat() default constructor!" << endl;
     }
-    // 加上关键字virtual，令该成员函数的解析在运行时进行
+    // 加上关键字virtual，令该成员函数的解析在运行时动态进行
     virtual ~LibMat() {
         cout << "LibMat::~LibMat() destructor!" << endl;
     }
@@ -56,7 +56,7 @@ public:
     }
 
 protected:
-    // 被声明为protected的所有成员都可以被派生类直接访问，初派生类之外，无法被直接访问
+    // 被声明为protected的所有成员都可以被派生类直接访问，除派生类之外，无法被直接访问
     string _title;
     string _author;
 };
@@ -140,7 +140,19 @@ Book::~Book() destructor!
 LibMat::~LibMat() destructor!           // Book析构完毕
 LibMat::~LibMat() destructor!           // LibMat析构完毕
 ```
-可以发现构造函数和析构函数在派生类中的调用顺序正好相反。
+**可以发现构造函数和析构函数在派生类中的调用顺序正好相反**。
+
+如果按如下方式定义指针`b`：
+```C++
+LibMat *b = new Book("The Castle", "sFranz Kafkads");
+print(*b);
+```
+则`b`实际指向的是一个Book类对象。
+
+`Book *b = new LibMat`会报错：
+```C++
+error: cannot initialize a variable of type 'Book *' with an rvalue of type 'LibMat *'
+```
 
 3、通过之前的一个例子来模拟多态：
 
@@ -346,8 +358,8 @@ pentagonal: 1 4 9 16 25 36 49 64 81 100
 
 4、实现数列问题多态：
 
-（1）第一步，定义一个抽象基类。定义抽象基类的第一个步骤是**找出所有子共通的操作行为**。第二步，**找出哪些操作行为与类型相关**，它们应当被定义为虚函数，
-各派生了然后再给出自己独特的实现。第三步，**确定每个操作行为的访问层级**（public、protected还是private），
+（1）第一步，定义一个抽象基类。定义抽象基类的第一个步骤是**找出所有子类共通的操作行为**。第二步，**找出哪些操作行为与类型相关**，它们应当被定义为虚函数，
+各派生类然后再给出自己独特的实现。第三步，**确定每个操作行为的访问层级**（public、protected还是private），
 相关的讨论见https://www.cnblogs.com/qlwy/archive/2011/08/25/2153584.html。
 
 因此定义基类如下：
@@ -367,7 +379,7 @@ public:
     virtual int elem(int pos) const = 0;
     virtual string what_am_i() const = 0;
     virtual ostream& print(ostream &os = cout) const = 0;
-    // 显然，静态成员函数无法被声明为虚函数。
+    // 显然，静态成员函数无法被声明为虚函数。这是因为静态成员函数访问的是静态数据，二者都是要在编译时就明确的。
     static int max_elems() { return _max_elems; }
 
 protected:
