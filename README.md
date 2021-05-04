@@ -4,7 +4,7 @@
 
 **目录**：
 + [**Chapter 01** C++编程基础](https://github.com/hliangzhao/essentialCpp/tree/main/ch01)
-+ [**Chapter 02** 面向对象的编程风格](https://github.com/hliangzhao/essentialCpp/tree/main/ch02)
++ [**Chapter 02** 面向过程的编程风格](https://github.com/hliangzhao/essentialCpp/tree/main/ch02)
 + [**Chapter 03** 泛型编程风格](https://github.com/hliangzhao/essentialCpp/tree/main/ch03)
 + [**Chapter 04** 基于对象的编程风格](https://github.com/hliangzhao/essentialCpp/tree/main/ch04)
 + [**Chapter 05** 面向对象编程风格](https://github.com/hliangzhao/essentialCpp/tree/main/ch05)

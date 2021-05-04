@@ -244,7 +244,7 @@ const vector<int> *fib(int size) {
 例如将`void Func(A a)`改为`void Func(const A &a)`。
 对于内部数据类型的输入参数，不要将“值传递”的方式改为“`const`引用传递”。否则既达不到提高效率的目的，又降低了函数的可理解性。
 例如`void Func(int x)`不应该改为`void Func(const int &x)`。这是因为内部数据类型的参数不存在构造、析构的过程，
-而复制也非常快，“值传递”和“引用传递”的效率几乎相当。除了值传递和引用传递，驶入参数若是指针，则`const`可起到防止意外改动该指针的作用。例如`void StrCpy(char *strDestination, const char *strSource)`。
+而复制也非常快，“值传递”和“引用传递”的效率几乎相当。除了值传递和引用传递，传入参数若是指针，则`const`可起到防止意外改动该指针的作用。例如`void StrCpy(char *strDestination, const char *strSource)`。
 
 （3）用`const`修饰函数的返回值。如果给以“指针传递”方式的函数返回值加`const`修饰，那么函数返回值（即指针）的内容不能被修改，
 返回值只能被赋给加`const`修饰的同类型指针。上面静态局部对象的例子正是这样。
