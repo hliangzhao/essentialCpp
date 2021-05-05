@@ -2,6 +2,7 @@
 #include <string>
 using namespace std;
 
+// 使用string读取用户名并判断长度。
 int main() {
     string username;
     cin >> username;

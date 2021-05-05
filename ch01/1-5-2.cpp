@@ -3,6 +3,7 @@
 #include <cstring>
 using namespace std;
 
+// 使用字符数组读取用户名并判断长度。
 int main() {
     const int name_size = 128;
     char username[name_size];

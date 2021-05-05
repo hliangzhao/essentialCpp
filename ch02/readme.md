@@ -19,8 +19,7 @@ int main() {
 
 3、当我们调用一个函数的时候，会在内存区域建立一块特殊区域（程序堆栈），这块区域提供了每个函数参数的存储空间和函数所定义的每个对象的内存空间，这些对象被称为“局部对象”。一旦函数完成，这块内存区域就会被释放掉（从堆栈中被pop出来）。因此，如果我们撰写了一个不带有返回值的参数，就需要认真思考这个函数是否真正改变了传入的参数。
 
-这就引入了**传值**与**传址**两种参数传递方式。C++中函数只能有最多一个返回值，因此善用传址很有必要。
-下面给出了一个例子：
+这就引入了**传值**与**传址**两种参数传递方式。C++中函数只能有最多一个返回值，因此善用传址很有必要。下面给出了一个例子：
 ```C++
 #include <iostream>
 #include <vector>
@@ -41,6 +40,8 @@ int main() {
 }
 
 // 加上const是为了方便阅读：表明本函数不会对输入的vec做任何更改
+// 后面我们会反复看到这种写法。即，如果一个函数不改变输入参数，那么应该以const reference的方式声明参数。
+// 这是性能最高且提高代码鲁棒性的标准写法。
 void display(const vector<int> &vec) {
     for (int i = 0; i < vec.size(); i++) {
         cout << vec[i] << " ";
@@ -48,7 +49,7 @@ void display(const vector<int> &vec) {
     cout << endl;
 }
 
-// 传值：vec并未被修改
+// 传值：vec并未被修改。v1和v2都仅仅是local scope中新复制的那一份数据而已
 void swap1(int v1, int v2) {
     int tmp = v1;
     v1 = v2;
@@ -84,6 +85,7 @@ void bubble_sort(vector<int> &vec) {
 using namespace std;
 
 // 返回了局部变量（数组M）的地址
+// 我们用float *表示A是一个数组的首地址，也可以是用float A[]的方式达到同样的效果。
 float* Array(float *A,int length) {
     float M[5];
     for (int i = 0; i < length; i++)
@@ -131,7 +133,7 @@ float* Array(float *A, int length) {
     return M;
 ```
 
-当然，使用**静态布局对象**也可以解决问题（后文给出）：
+当然，使用**静态局部对象**也可以解决问题（后文给出）：
 ```C++
 const float* Array(float *A,int length) {
     static float M[5];  //Array函数内部数组
@@ -215,8 +217,9 @@ int main() {
 }
 
 // 该函数返回的是一个指向特定内存区域首地址的指针，const关键字保证该指针在函数调用中不会被修改。
+// 这里也表明了，const的作用范围是函数名前面的所有部分，也即vector<int> *，而非vector<int>。
 // 因为容器vector实际上是通过new在堆上创建的，因此这里返回的是指向堆内存空间的特定位置的指针。
-// 这块特定区域内存储的数值被修改了，但是指针指向的区域首地址不变。
+// 这块特定区域内存储的数值被修改了，但是指针指向的区域首地址不变，也不允许被改变。
 const vector<int> *fib(int size) {
     const int max_size = 1024;
     static vector<int> elems;
@@ -224,7 +227,7 @@ const vector<int> *fib(int size) {
         cout << "invalid size"  << endl;
         return nullptr;
     }
-    // 计算index为[elems.size()， size]区间的元素值
+    // 计算index为[elems.size()， size)区间的元素值
     for (unsigned i = elems.size(); i < size; i++) {
         if (i == 0 || i == 1) {
             elems.push_back(1);
@@ -240,7 +243,7 @@ const vector<int> *fib(int size) {
 
 （1）定义`const`常量。这是最常用的使用方式，表示该常量对象无法再被修改。
 
-（2）用`const`修饰函数的参数。对于非内部数据类型的输入参数，应该将“值传递”的方式改为“`const`引用传递”，目的是提高效率。
+（2）用`const`修饰函数的参数。对于**非内部数据类型的输入参数**，应该将“值传递”的方式改为“`const reference`”（前文已经提过），目的是提高效率。
 例如将`void Func(A a)`改为`void Func(const A &a)`。
 对于内部数据类型的输入参数，不要将“值传递”的方式改为“`const`引用传递”。否则既达不到提高效率的目的，又降低了函数的可理解性。
 例如`void Func(int x)`不应该改为`void Func(const int &x)`。这是因为内部数据类型的参数不存在构造、析构的过程，
@@ -281,11 +284,11 @@ vector<int> fib(int size) {
 }
 ```
 虽然我们返回了一个在函数内创建的对象，但是这并不会报错。具体原因这里再解释一遍。这是因为，该对象`elems`是一个容器，STL中容器都是通过`new`操作在堆上分配的，
-它们不在file scope或local scope的管辖范围内。注意，我们使用静态局部对象的原因是**对象所在空间即使在不同的函数调用过程中，仍然持续存在**。
+它们不在file scope或local scope的管辖范围内【存疑】。注意，我们使用静态局部对象的原因是**对象所在空间即使在不同的函数调用过程中，仍然持续存在**。
 因为这里返回的不是特定的被创建的对象的首地址，因此，每次调用`fib()`函数，都相当于又在堆上分配了一块新的内存区域，这就导致了内存资源的浪费。
 
 7、使用inline改善代码性能：
-将函数声明为inline，表示要求编译器在该函数内的每个调用点上将被调用者的内容展开——**将调用操作改为以一份函数代码副本代替**。inline对编译器而言**不是强制性的**。
+将函数声明为inline，表示要求编译器在该函数内的每个调用点上将被调用者的内容展开——**将调用操作用一份函数代码副本代替**。inline对编译器而言**不是强制性的**。
 ```C++
 #include <iostream>
 #include <vector>
@@ -343,7 +346,7 @@ inline bool find_elem(int pos, int &elem) {
 
 8、从重载函数到模版函数
 
-（1）**函数重载**：对于具有相同函数名的函数，通过**参数列表**来区分具体应该调用那一个函数。注意，函数的返回类型不足以将函数重载。
+（1）**函数重载**：对于具有相同函数名的函数，通过**参数列表**来区分具体应该调用哪一个函数。注意，函数的返回类型不足以将函数重载。
 ```C++
 #include <iostream>
 using namespace std;
@@ -414,9 +417,7 @@ template <typename elemType> void display(const string &s, const vector<elemType
 }
 ```
 
-（3）使用函数指针：
-
-回到斐波那契数列inline函数的例子。该例子中，`const vector<int> *fib(int size)`返回了一个斐波那契数列，
+（3）回到斐波那契数列inline函数的例子。该例子中，`const vector<int> *fib(int size)`返回了一个斐波那契数列指针，
 `inline bool find_elem(int pos, int &elem)`则输出斐波那契数列的某个位置的数值。在inline函数中，只有一行调用了`fib()`函数，现在想要让`find_elem()`支持别的数列，如何写最少的代码？
 
 ——使用**函数指针**。
@@ -427,7 +428,7 @@ template <typename elemType> void display(const string &s, const vector<elemType
 using namespace std;
 
 bool is_size_ok(int size);
-// 下面是那个函数都使用静态局部变量并返回常指针以提供代码性能。
+// 下面每个函数都使用静态局部变量并返回常指针以提高代码性能。
 const vector<double> *fib_seq(int size);
 const vector<double> *square_seq(int size);
 const vector<double> *circle_seq(int size);
@@ -529,7 +530,7 @@ bool is_size_ok(int size) {
 ```C++
 // 这是某个头文件
 const int seq_cnt = 3;          // const object和inline函数一样，是一个例外，不需要加上extern，因为它可以被多次定义
-extern const vector<double> * (*seq_arr[seq_cnt])(int);             // 这不是一个const object，而是一个指向const object的指针，因而需要带上extern关键字
+extern const vector<double> * (*seq_arr[seq_cnt])(int);             // 这不是一个const object，而是一个const pointer，因而需要带上extern关键字
 extern enum seq_types {fib_seq_id, square_seq_id, circle_seq_id};   // 使用extern声明一个全局枚举变量
 ```
 

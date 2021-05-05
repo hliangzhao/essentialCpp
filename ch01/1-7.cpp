@@ -4,6 +4,7 @@
 #include <algorithm>
 using namespace std;
 
+// 通过标准输入读取多行文本，排序后并写入新的文本。
 int main() {
     ifstream infile("data.txt");
     if (!infile) {
@@ -28,11 +29,11 @@ int main() {
     // 按照字典序排序
     sort(text.begin(), text.end());
 
-    cout << "Sorted words:"<< endl;
+    outfile << "Sorted words:"<< endl;
     for (int i = 0; i < text.size(); i++) {
-        cout << text[i] << " " << endl;
+        outfile << text[i] << " " << endl;
     }
-    cout << endl;
+    outfile << endl;
 
     return 0;
 }
