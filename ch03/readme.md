@@ -1,6 +1,6 @@
 ## Chapter 3 泛型编程风格
 
-1、标准模版库（STL）主要由两类组件：
+1、标准模版库（STL）主要由两类组件组成：
 + **容器**。包括vector、list、set、map等；
 + 操作这些容器的**泛型算法**，包括`find()`、`sort()`、`merge()`、`replace()`等。
 
@@ -19,9 +19,14 @@
 #include <vector>
 using namespace std;
 
+// 解决问题一
 const int *my_find(const vector<int> &vec, int value);
+
+// 解决问题二的两种方法
 template <typename elemType> const elemType *my_find(const elemType *arr, int size, const elemType &value);
 template <typename elemType> const elemType *my_find(const elemType *first, const elemType *last, const elemType &value);
+
+// 解决问题三
 template <typename elemType> inline const elemType *my_begin(const vector<elemType> &vec);
 template <typename elemType> inline const elemType *my_end(const vector<elemType> &vec);
 
@@ -45,6 +50,9 @@ const int *my_find(const vector<int> &vec, int value) {
 }
 
 // 问题二：如果存储数值的是数组，并且不要求数值类型是int，如何操作？
+// 下面给出了两个方法。可以发现，最后一个参数都被设置成了const elemType reference的类型，这是一种处理策略，即将所有未知类型都视为class object，然后用const reference。
+// 后面讲到设计模版类的时候会深入分析。
+
 // 方法1：传入数组首地址和数组大小
 template <typename elemType> const elemType *my_find(const elemType *arr, int size, const elemType &value) {
     if (!arr || size < 1) return nullptr;
@@ -92,6 +100,7 @@ containerType<elemType>::const_iterator iter = c.begin();       // 只能读取c
 #include <list>
 using namespace std;
 
+// STL帮我们实现了vector<int>::iterator和list<int>::iterator
 template <typename iterType, typename elemType> 
 iterType my_find(iterType first, iterType last, const elemType &value);
 
@@ -265,9 +274,9 @@ int main() {
 ```
 
 
-7、泛型算法可大致划分如下几类（TODO：补充常用泛型算法的使用）。：
+7、泛型算法可大致划分如下几类（TODO：补充常用泛型算法的使用）：
 + **搜索**：`find()`、`count()`、`adjcent_find()`、`finf_if()`、`binary_search()`等；
-+ **排序及次序整理**：`merge()`、`reverse()`、`rotate()`、`sort(0`、`partition()`、`random_shuffle()`等；
++ **排序及次序整理**：`merge()`、`reverse()`、`rotate()`、`sort()`、`partition()`、`random_shuffle()`等；
 + **复制，删除与替换**：`copy()`、`remove()`、`replace()`、`swap()`、`unique()`等；
 + **关系**：`equal()`、`includes()`、`mismatch()`等；
 + **生成与质变**：`fill()`、`for_each()`、`generate()`、`transform()`等；
@@ -286,6 +295,7 @@ int main() {
 using namespace std;
 
 vector<int> filter(const vector<int> &vec, int filter_value) {
+    // 注意，res不属于local scope，因为这是分配在堆上的
     vector<int> res;
     for (int i = 0; i < vec.size(); i++) {
         if (vec[i] < filter_value) {
@@ -341,7 +351,7 @@ int main() {
 ```
 
 （3）**通过函数指针来调用传入的比较方法仍然有不可忽视的代价，还有没有别的方法？**——使用函数对象（function object）。
-函数对象是类的实例对象，这些类对函数调用运算符做了重载操作，使得函数对象可以被当作一般函数来使用。
+函数对象是类的实例对象，这些类**对函数调用运算符做了重载**，使得函数对象可以被当作一般函数来使用。
 
 在下面的例子中，通过传入函数对象`greater<int>()`给`sort()`函数，使得`sort()`按照降序排列。
 ```C++
@@ -371,10 +381,11 @@ int main() {
 #include <algorithm>
 using namespace std;
 
+// lt是我们传入的函数对象实例。显然，应当通过引用来调用。
 vector<int> filter(const vector<int> &vec, int val, less<int> &lt) {
     vector<int> res;
     auto it = vec.begin();
-    // 对于传入的函数对象l（是类less<int>的一个实例），使用bind操作将该函数对象的第二个参数绑定val
+    // 对于传入的函数对象lt（是类less<int>的一个实例），使用bind操作将该函数对象的第二个参数绑定val
     // 这里使用find_if()，因为find_if()第三个参数为Predicate，它在区间[first,end)中搜寻使一元判断式pred为true的第一个元素
     // 而find()第三个参数为待寻找的元素值
     while ((it = find_if(it, vec.end(), bind2nd(lt, val))) != vec.end()) {

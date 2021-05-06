@@ -20,7 +20,7 @@ public:
         // 成员函数可以直接访问类内部定义的数据成员，不论该数据成员是public还是non-public
         return _stack.size() == _stack.max_size();
     }
-    // 如果不应该改变传入的参数，俺么应当尽可能使用const关键字，提高鲁棒性
+    // 如果不应该改变传入的参数，那么应当尽可能使用const关键字，提高鲁棒性
     bool find(const string &elem);
     bool find2(const string &elem);
     int count(const string &elem);
@@ -230,6 +230,7 @@ public:
     }
 
     // copy assignment operator
+    // 注意返回类型为Matrix &，意其含义为“返回this指向的那个特定对象本身”，而不是一个复制出来的新对象
     Matrix& operator=(const Matrix &mat) {
         if (this != &mat) {
             _row = mat._row;
@@ -254,7 +255,7 @@ private:
 };
 ```
 有了copy constructor之后，不论我们通过`Matrix mat2(mat)`的方式定义并初始化类对象`mat2`，还是通过`Matrix mat2 = mat`的方式初始化/赋值类对象`mat2`，
-都将调用正确的初始化方式。
+都是我们期望达到的、正确的初始化行为。
 
 4、使用`const`关键字表明成员函数不会改变类对象实例：
 ```C++
@@ -264,11 +265,11 @@ using namespace std;
 
 class TriangularArr {
 public:
-    TriangularArr();
-    TriangularArr(int len, int begin_pos = 1);
-    TriangularArr(const TriangularArr &arr);        // 成员逐一初始化
+    TriangularArr();                                // constructor 1
+    TriangularArr(int len, int begin_pos = 1);      // constructor 2
+    TriangularArr(const TriangularArr &arr);        // 成员逐一初始化，这个叫做copy constructor，这一种特殊的constructor
 
-    // 下面三个函数都在参数列表后面加上了const修饰符，表明它们不会更改其调用者
+    // 下面三个函数都在参数列表“后面”加上了const修饰符，表明它们不会更改其调用者
     // 即不会改变调用该方法的类实例本身
     // 如果该函数改变了调用者，那么编译器会报错。
     int length() const {
@@ -294,6 +295,9 @@ private:
     static const int _buf_size = 1024;          // 对于这种静态常量数据成员，此处虽然是声明，但是也可以直接初始化，因此无需在外部再重复定义
 };
 
+// 提供静态数据成员的定义
+static vector<int> TriangularArr::_elems;
+static const int _buf_size;
 // trian是一个const reference参数，因此编译器必须保证train在sum()中不会被修改
 // 也就是说，需要让begin_pos()，length()和elem()函数不改变trian的内容
 // 通过为这三个函数添加const修饰符，来让编译器检查并要求开发者正确实现这三个函数
@@ -319,6 +323,7 @@ TriangularArr::TriangularArr(int len, int begin_pos) {
     _next = _begin_pos - 1;
 }
 
+// 毫无疑问，应该使用const reference的方式定义参数
 TriangularArr::TriangularArr(const TriangularArr &arr):
         _length(arr._length), _begin_pos(arr._begin_pos), _next(arr._next - 1)
 {}
@@ -512,7 +517,7 @@ int main() {
 
 7、实现iterator class对运算符进行重载：
 
-如果我们想要通过iterator的方式操作类的实例，像下面这样，需要补充什么内容？
+如果我们想要通过iterator的方式操作类的实例，像下面这样，那么如何写一个迭代器？
 ```C++
 TriangularArr tri(1, 8);
 TriangularArr::iterator it = tri.begin(), it_end = tri.end();
@@ -534,12 +539,12 @@ using namespace std;
 class TriangularArrIter {
 public:
     TriangularArrIter(int idx): _index(idx) {}
-    // 重载运算符，成员函数的命名规则为"operator OP"，其中OP指具体的运算符，左操作对象（左元）是调用者本身
+    // 重载运算符，成员函数的命名规则为"operator OP"，其中OP指具体的运算符，对于==和!=，左操作对象（左元）是调用者本身
     bool operator==(const TriangularArrIter&) const;
     bool operator!=(const TriangularArrIter&) const;
-    int operator*() const;                  // 重载指针（迭代器）提领操作
-    TriangularArrIter& operator++();        // 重载前置++
-    TriangularArrIter operator++(int);      // 重载后置++
+    int operator*() const;                  // 重载指针（迭代器）提领操作，右操作对象是调用者本身
+    TriangularArrIter& operator++();        // 重载前置++，左操作对象是调用者本身
+    TriangularArrIter operator++(int);      // 重载后置++，右操作对象是调用者本身
 
 private:
     void check_integrity() const;
@@ -664,11 +669,6 @@ private:
 };
 
 class TriangularArr {
-public:
-    typedef TriangularArrIter iterator;
-    TriangularArrIter begin() const { return TriangularArrIter(_begin_pos); }
-    TriangularArrIter end() const { return TriangularArrIter(_begin_pos + _length); }
-
     // 将下面这些非成员函数声明为自己的friend，因为它们访问了自己的non-public member
     // 如果自己提供了non-public member的公开访问方式，如：static int elem_size() { return _elem.size(); }，那么friend关键字就不需要了
     friend int TriangularArrIter::operator*() const;
@@ -676,6 +676,11 @@ public:
 
     // 或者，直接将这个类声明为自己的friend，这个类就可以肆意访问自己的non-public member
     // friend class TriangularArrIter;
+
+public:
+    typedef TriangularArrIter iterator;
+    TriangularArrIter begin() const { return TriangularArrIter(_begin_pos); }
+    TriangularArrIter end() const { return TriangularArrIter(_begin_pos + _length); }
 
 private:
     int _length;
@@ -761,7 +766,7 @@ int count_less_than(const vector<int> &v, int comp) {
 }
 ```
 
-10、重载iostream运算符：
+10、重载iostream运算符，需要将`cin`和`cout`的重载定义为外部函数而非类的成员函数：
 ```C++
 // 重载iostream运算符（按照指定格式读入和写出）
 // 重载cout起到的是to_string的效果，最后返回cout以便可以串接多个output运算符
@@ -789,6 +794,7 @@ using namespace std;
 class num_sequence {
 public:
     // 将PtrType声明为一个指针，指向num_sequence的成员函数，该成员函数的返回类型是void，且仅有一个参数，类型为int。
+    // 可发现，折合声明一个函数指针无异，仅仅是加上了类作用域运算符而已。
     // void (num_sequence::*PtrType)(int);
     // void (num_sequence::*PtrType)(int) = 0则是声明的时候同时初始化为nullptr。
     // 下面这种方式使用了typedef将该类型的指针化名为PtrType，这样就可以PtrType pm = 0直接声明一个该类型的函数指针pm。
@@ -828,6 +834,7 @@ num_sequence::PtrType num_sequence::func_tbl[num_seq] = {
 
 int num_sequence::elem(int pos) {
     if (pos > _elem->size()) {
+        // 成员函数指针必须通过同一类的对象实例加以调用
         (this->*_ptr)(pos);
     }
     return (*_elem)[pos - 1];
@@ -839,7 +846,7 @@ int main() {
     num_sequence *pns = &ns;
     num_sequence::PtrType pm = &num_sequence::fib;      // 定义指向成员函数的指针
     int pos =0 ;
-    // 指针pm必须通过同一类的对象（这里便是ns和pns）实例加以调用
+    // 成员函数指针pm必须通过同一类的对象（这里便是ns和pns）实例加以调用
     (ns.*pm)(pos);
     (pns->*pm)(pos);
 }

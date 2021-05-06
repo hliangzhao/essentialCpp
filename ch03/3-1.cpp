@@ -5,6 +5,8 @@
 #include <set>
 using namespace std;
 
+// 读取文本文件。将排除列表之外的token和出现的次数写入map。提供token的查询操作。
+
 void init_exclusion_set(set<string> &exs);
 void process_file(map<string, int> &word_cnt, const set<string> &exs, ifstream &in_file);
 void user_query(const map<string, int> &word_cnt);
