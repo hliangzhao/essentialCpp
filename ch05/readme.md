@@ -6,7 +6,7 @@
 继承机制定义了父子关系。父类定义了所有子类共通的公有接口和私有实现。每个子类都可以增加或覆盖继承而来的东西，以实现其自身独特的行为。
 在C++中，父类被称为**基类**，子类被称为**派生类**。
 
-使用抽象基类的**指针**或**引用**来操纵其公共接口，实际执行起来时需要等到运行时才能确定指针或引用所指的实际对象的类型。
+使用抽象基类的**指针**或**引用**来操纵其公共接口，实际执行起来时需要等到**运行时**才能确定指针或引用所指的实际对象的类型。
 
 2、通过以下实例理解继承机制：
 ```C++
@@ -33,6 +33,8 @@ public:
 // 相关讨论：https://www.cnblogs.com/qlwy/archive/2011/08/25/2153584.html
 class Book: public LibMat {
 public:
+    // string虽然是内部数据类型，但是和int、float等还不一样，这是C++为我们分装的。
+    // 我们应该将其视为复杂数据类型，因而这里用的是const reference作为参数的形式。
     Book(const string &title, const string &author):
     _title(title), _author(author) {
         cout << "Book::Book(" << _title << ", " << _author << ") constructor!" << endl;
@@ -56,7 +58,7 @@ public:
     }
 
 protected:
-    // 被声明为protected的所有成员都可以被派生类直接访问，除派生类之外，无法被直接访问
+    // 被声明为protected的所有成员都可以被派生类直接访问，除自身和派生类，其他对象无法直接访问这些成员
     string _title;
     string _author;
 };
@@ -140,14 +142,14 @@ Book::~Book() destructor!
 LibMat::~LibMat() destructor!           // Book析构完毕
 LibMat::~LibMat() destructor!           // LibMat析构完毕
 ```
-**可以发现构造函数和析构函数在派生类中的调用顺序正好相反**。
+**可以发现构造函数和析构函数在派生类中的调用顺序正好相反**。此外，基类和派生类的构造函数不需要加上`virtual`，但是构造函数需要。
 
 如果按如下方式定义指针`b`：
 ```C++
 LibMat *b = new Book("The Castle", "sFranz Kafkads");
 print(*b);
 ```
-则`b`实际指向的是一个Book类对象。
+虽然我们将`b`声明为`LibMat`指针，但它实际指向的是一个Book类对象。
 
 `Book *b = new LibMat`会报错：
 ```C++
@@ -218,7 +220,7 @@ NumSequence::SeqPtr NumSequence::_seq_pointers[_num_seq] = {
         nullptr, &NumSequence::fib, &NumSequence::pell, &NumSequence::lucas,
         &NumSequence::triangular, &NumSequence::square, &NumSequence::pentagonal
 };
-// 如果不像上面那样在构造函数中分配堆内存，在定义静态成员时分配也可以
+// 如果不像上面那样在构造函数中分配堆内存，在定义静态成员时分配也可以（这才是理想做法）
 vector<vector<int>> NumSequence::_seqs = *new vector<vector<int>>(_num_seq);
 
 NumSequence::ns_type NumSequence::nstype(int idx) {
@@ -468,7 +470,7 @@ ostream& operator<<(ostream &os, const NumSequence &ns) {
 int Fibonacci::elem(int pos) const {
     // 调用自基类继承而来的函数check_integrity()
     if (!check_integrity(pos)) return 0;
-    // 下面的代码是Fibonacci::gen_elems()而非::gen_elems(pos)，这是为了跳过虚函数的机制，在编译时就完成解析，提高代码性能。
+    // 下面的代码是Fibonacci::gen_elems()而非gen_elems()，这是为了跳过虚函数的机制，在编译时就完成解析，提高代码性能。
     if (pos > _elems.size()) Fibonacci::gen_elems(pos);
     return _elems[pos - 1];
 }
@@ -630,8 +632,8 @@ protected:
 7、在派生类中定义虚函数：
 
 在定义派生类的时候，我们必须决定，是覆盖基类中的虚函数，还是原封不动加以继承。如果继承了一个纯虚函数，则这个派生类也会被视为抽象类，
-程序无法为期定义任何对象。如果决定覆盖基函数，那么**其函数原型必须完全符合基类所声明的函数原型，包括参数列表、返回类型和常量性**。
-当然，有一种情况是特例。
+程序无法为其定义任何对象。如果决定覆盖基函数，那么**其函数原型必须完全符合基类所声明的函数原型，包括参数列表、返回类型和常量性**。
+当然，有一种情况是特例（即基类的虚函数返回的是某个基类的指针或引用时）。
 
 详见注释：
 ```C++

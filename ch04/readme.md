@@ -272,6 +272,7 @@ public:
     // 下面三个函数都在参数列表“后面”加上了const修饰符，表明它们不会更改其调用者
     // 即不会改变调用该方法的类实例本身
     // 如果该函数改变了调用者，那么编译器会报错。
+    // 下面三个函数显然不会改变调用者。因为返回值不是int &，而是int，说白了，返回的其实只是本对象的数据成员的一个copy而已。
     int length() const {
         return _length;
     }
@@ -298,6 +299,7 @@ private:
 // 提供静态数据成员的定义
 static vector<int> TriangularArr::_elems;
 static const int _buf_size;
+
 // trian是一个const reference参数，因此编译器必须保证train在sum()中不会被修改
 // 也就是说，需要让begin_pos()，length()和elem()函数不改变trian的内容
 // 通过为这三个函数添加const修饰符，来让编译器检查并要求开发者正确实现这三个函数
@@ -350,6 +352,7 @@ public:
     // 该函数的返回值是SomeClass &，而非const SomeClass &，相当于把类实例的私有变量_value开放了出去，允许其他程序修改。
     // 因此，这里的const没有起到期望的约束效果。然而，这里编译器并不会报错。
     // （注意，这里的返回值带有引用，这是什么意思？其实和返回指针一样，是为了返回特定的“那个对象”以便在外部蹂躏它，而不是返回一个长得一样的另一个东西）
+    // 这里返回的是调用者的某个数据成员本身，因此存在被改动的风险。
     SomeClass& value() const {
         return _value;
     }
@@ -364,6 +367,7 @@ private:
 class ValClass {
 public:
     ValClass(const SomeClass &v): _value(v) {}
+    // 在返回值处再加上const关键字加以限定，这样就只能赋给常量，因而也就不会被在外部被更改了。
     const SomeClass& value() const {
         return _value;
     }
