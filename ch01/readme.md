@@ -56,6 +56,7 @@ using namespace std;
 
 int main() {
     // 打开一个可供输出的文件（create），使用追加模式
+    // 注意第一个参数的类型是const char *。string转char *可以通过str.c_str()来完成
     ofstream outfile("data.txt", ios_base::app);
     if (!outfile) {
         cerr << "Can't open file" << endl;
