@@ -257,7 +257,7 @@ private:
 有了copy constructor之后，不论我们通过`Matrix mat2(mat)`的方式定义并初始化类对象`mat2`，还是通过`Matrix mat2 = mat`的方式初始化/赋值类对象`mat2`，
 都是我们期望达到的、正确的初始化行为。
 
-4、使用`const`关键字表明成员函数不会改变类对象实例：
+4、使用`const`关键字表明成员函数不会改变类对象实例（关键字`const`放在成员函数的参数列表后面）：
 ```C++
 #include <iostream>
 #include <vector>
@@ -590,13 +590,11 @@ inline int operator*(const TriangularArrIter &arr) {
 inline TriangularArrIter& TriangularArrIter::operator++() {
     ++_index;
     check_integrity();
-    // 调用重载的提领运算符
     return *this;
 }
 
 // 重载后置++（编译器自动为其产生一个int参数0），这个用不到的参数之所以出现在这里是为了避免破坏重载规则（即参数列表必须独一无二）
 inline TriangularArrIter TriangularArrIter::operator++(int) {
-    // 调用重载的提领运算符
     TriangularArrIter tmp = *this;
     ++_index;
     check_integrity();
@@ -641,58 +639,84 @@ int main() {
 #include <vector>
 using namespace std;
 
-class TriangularArrIter {
-public:
-    TriangularArrIter(int idx): _index(idx) {}
-    bool operator==(const TriangularArrIter&) const { return _index == arr._index; }
-    bool operator!=(const TriangularArrIter&) const { return !(*this == arr); }
-    // 本函数访问了TriangularArr的non-public数据成员，需要被后者声明为friend
-    int operator*() const {
-        check_integrity();
-        return TriangularArr::_elems[_index];
-    }
-    TriangularArrIter& operator++() {
-        ++_index;
-        check_integrity();
-        return *this;
-    }
-    TriangularArrIter operator++(int) {
-        TriangularArrIter tmp = *this;
-        ++_index;
-        check_integrity();
-        return tmp;
-    }
-    // 本函数访问了TriangularArr的non-public数据成员，需要被后者声明为friend
-    void check_integrity() const {
-        if (_index >= TriangularArr::_buf_size) throw iterator_overflow();
-        if (_index >= TriangularArr::_elems.size()) TriangularArr::gen_elements(_index + 1);
-    }
-
-private:
-    int _index;
-};
+// head
+class TriangularIter;
 
 class TriangularArr {
     // 将下面这些非成员函数声明为自己的friend，因为它们访问了自己的non-public member
     // 如果自己提供了non-public member的公开访问方式，如：static int elem_size() { return _elem.size(); }，那么friend关键字就不需要了
-    friend int TriangularArrIter::operator*() const;
-    friend void TriangularArrIter::check_integrity() const;
-
-    // 或者，直接将这个类声明为自己的friend，这个类就可以肆意访问自己的non-public member
-    // friend class TriangularArrIter;
-
+    // friend int TriangularArrIter::operator*() const;
+    // friend void TriangularArrIter::check_integrity() const;
+    // 因为此时TriangularIter尚未定义，直接像上面那样声明TriangularIter的成员函数为自己的友元会报错（没有相关的声明，无法识别这是什么）。
+    // 因此，将TriangularIter直接声明为自己的友元类才是正确的解决方法。
+    friend class TriangularIter;
 public:
-    typedef TriangularArrIter iterator;
-    TriangularArrIter begin() const { return TriangularArrIter(_begin_pos); }
-    TriangularArrIter end() const { return TriangularArrIter(_begin_pos + _length); }
+    typedef TriangularIter iterator;
+    TriangularIter begin() const;
+    TriangularIter end() const;
 
 private:
-    int _length;
-    int _begin_pos;
+    int _len;
+    int _beg_pos;
     int _next;
     static vector<int> _elems;
     static const int _buf_size = 1024;
 };
+
+class TriangularIter {
+public:
+    TriangularIter(int index): _index(index) {}
+    bool operator==(const TriangularIter&) const;
+    bool operator!=(const TriangularIter&) const;
+    int operator*() const;              // 本函数访问了TriangularArr的non-public数据成员，需要被后者声明为friend
+    TriangularIter& operator++();
+    TriangularIter operator++(int);
+
+private:
+    void check_integrity() const;       // 本函数访问了TriangularArr的non-public数据成员，需要被后者声明为friend
+    int _index;
+};
+
+
+// source
+TriangularIter TriangularArr::begin() const {
+    return TriangularIter(_beg_pos);
+}
+
+TriangularIter TriangularArr::end() const {
+    return TriangularIter(_beg_pos + _len);
+}
+
+bool TriangularIter::operator==(const TriangularIter &iter) const {
+    return _index == iter._index;
+}
+
+bool TriangularIter::operator!=(const TriangularIter &iter) const {
+    return !(*this == iter);
+}
+
+int TriangularIter::operator*() const {
+    check_integrity();
+    return TriangularArr::_elems[_index];
+}
+
+TriangularIter& TriangularIter::operator++() {
+    ++_index;
+    check_integrity();
+    return *this;
+}
+
+TriangularIter TriangularIter::operator++(int) {
+    TriangularIter tmp = *this;
+    ++_index;
+    check_integrity();
+    return tmp;
+}
+
+void TriangularIter::check_integrity() const {
+    if (_index >= TriangularArr::_buf_size) throw exception();
+    if (_index >= TriangularArr::_elems.size()) TriangularArr::gen_elements(_index + 1);
+}
 ```
 
 9、实现一个function object：

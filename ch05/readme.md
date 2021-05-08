@@ -33,7 +33,7 @@ public:
 // 相关讨论：https://www.cnblogs.com/qlwy/archive/2011/08/25/2153584.html
 class Book: public LibMat {
 public:
-    // string虽然是内部数据类型，但是和int、float等还不一样，这是C++为我们分装的。
+    // string虽然是内部数据类型，但是和int、float等还不一样，这是C++为我们封装的。
     // 我们应该将其视为复杂数据类型，因而这里用的是const reference作为参数的形式。
     Book(const string &title, const string &author):
     _title(title), _author(author) {
