@@ -10,7 +10,3 @@
 + [**Chapter 05** 面向对象编程风格](https://github.com/hliangzhao/essentialCpp/tree/main/ch05)
 + [**Chapter 06** 以template进行编程](https://github.com/hliangzhao/essentialCpp/tree/main/ch06)
 + [**Chapter 07** 异常处理](https://github.com/hliangzhao/essentialCpp/tree/main/ch07)
-
-
-**To-Do**：
-+ Chapter 06中，当两个类的相互使用对方时，应如何声明类才能通过编译？（阅读https://blog.csdn.net/whahu1989/article/details/83627658）。
